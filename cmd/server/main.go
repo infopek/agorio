@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/infopek/agorio/internal/math"
 	"github.com/infopek/agorio/internal/models"
-
-	"github.com/gorilla/websocket"
 )
 
 const (

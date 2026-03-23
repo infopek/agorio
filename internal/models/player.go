@@ -1,9 +1,9 @@
 package models
 
 import (
-	"agorio/internal/math"
-
 	"github.com/google/uuid"
+
+	"github.com/infopek/agorio/internal/math"
 )
 
 const (
