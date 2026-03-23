@@ -1,6 +1,7 @@
 package main
 
 import (
+	"time"
 	"fmt"
 	"encoding/json"
 	"log"
@@ -14,7 +15,8 @@ import (
 )
 
 const (
-	PORT int = 8080
+	port int = 8080
+	fps int = 60
 )
 
 var upgrader = websocket.Upgrader{
@@ -42,8 +44,8 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	mutex.Lock()
-	// TODO: Get from input
-	player := models.NewPlayer("randika", math.Vector2{
+	// TODO: Get username from input
+	player := models.NewPlayer(fmt.Sprintf("randika%d", math.RandRange(1000, 10000)), math.Vector2{
 		X: math.RandRange(0, 100),
 		Y: math.RandRange(0, 100),
 	})
@@ -59,26 +61,47 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
+		var msg ClientMessage
 		if err = json.Unmarshal(message, &msg); err != nil {
 			log.Printf("Couldn't process msg: %s", err)
 			continue
 		}
-		log.Printf("Message received: %s\n", message)
+
+		mutex.Lock()
+		if player, ok := players[conn]; ok {
+			switch msg.Type {
+			case "move":
+				player.Target.X = msg.X
+				player.Target.Y = msg.Y
+			}
+			log.Printf("Message received: %v\n", msg)
+		}
+		mutex.Unlock()
 	}
 }
 
 func gameLoop() {
-	for {
-		message := <-broadcast
+	ticker := time.NewTicker(time.Duration(1000 / fps) * time.Millisecond)
+	defer ticker.Stop()
 
+	for range ticker.C {
 		mutex.Lock()
-		for client := range players {
-			err := client.WriteMessage(websocket.TextMessage, message)
-			if err != nil {
-				client.Close()
-				delete(players, client)
-			}
+
+		// Update
+		for _, p := range players {
+			fmt.Printf("Name: %s\n", p.Name)
+			//err := client.WriteMessage(websocket.TextMessage, message)
+			//if err != nil {
+			//	cljent.Close()
+			//	delete(players, client)
+			//}
 		}
+
+		// Handle collisions
+
+		// Respawn pellets
+
+		// Broadcast state
 		mutex.Unlock()
 	}
 }
@@ -94,6 +117,6 @@ func main() {
 
 	go gameLoop()
 
-	log.Printf("WebSocket server started on port %d", PORT)
-	log.Println(http.ListenAndServe(fmt.Sprintf(":%d", PORT), nil))
+	log.Printf("WebSocket server started on port %d", port)
+	log.Println(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 }

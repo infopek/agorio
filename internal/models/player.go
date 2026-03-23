@@ -14,12 +14,12 @@ const (
 )
 
 type Player struct {
-	ID        uuid.UUID
-	Name      string
-	Mass      int
-	Cells     []Cell
-	Pos       math.Vector2
-	TargetPos math.Vector2
+	ID     uuid.UUID
+	Name   string
+	Mass   int
+	Cells  []Cell
+	Pos    math.Vector2
+	Target math.Vector2
 }
 
 func NewPlayer(name string, pos math.Vector2) Player {
@@ -29,5 +29,9 @@ func NewPlayer(name string, pos math.Vector2) Player {
 		Mass:  math.RandRange(minMass, maxMass),
 		Cells: make([]Cell, maxCells),
 		Pos:   pos,
+		Target: math.Vector2{
+			X: 0,
+			Y: 0,
+		},
 	}
 }
