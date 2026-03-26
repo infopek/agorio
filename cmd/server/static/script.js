@@ -1,6 +1,7 @@
-// WebSocket connection and game logic
 let ws = null;
+
 const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext("2d");
 const messagesDiv = document.getElementById('messages');
 
 function connect() {
@@ -23,14 +24,21 @@ function sendMessage() {
     input.value = '';
 }
 
-// Add mouse move handler once canvas is ready
 canvas.addEventListener('mousemove', (event) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        return;
+    }
+
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    ws.send(JSON.stringify({ type: 'move', x, y }));
+    ws.send(JSON.stringify(
+        {
+            type: 'move',
+            x,
+            y
+        }
+    ));
 });
 
-// Start the connection
 connect();
