@@ -11,9 +11,9 @@ import (
 )
 
 type WorldState struct {
-	Players []Player `json:"players"`
-	Viruses []Virus  `json:"viruses"`
-	Pellets []Pellet `json:"pellets"`
+	Players map[string]Player `json:"players"`
+	Viruses []Virus           `json:"viruses"`
+	Pellets []Pellet          `json:"pellets"`
 }
 
 type WorldConfig struct {
@@ -26,7 +26,6 @@ type World struct {
 	players map[uuid.UUID]*Player
 	pellets []Pellet
 	viruses []Virus
-	physics math.PhysicsEngine
 	mu      sync.RWMutex
 }
 
@@ -36,7 +35,6 @@ func NewWorld(config WorldConfig) *World {
 		players: make(map[uuid.UUID]*Player, constants.MaxPlayers),
 		pellets: make([]Pellet, constants.PelletStartCount),
 		viruses: make([]Virus, constants.VirusStartCount),
-		physics: math.NewPhysicsEngine(),
 	}
 }
 
@@ -49,8 +47,8 @@ func (w *World) AddPlayer(name string) *Player {
 		Name: name,
 		Cells: []Cell{
 			Cell{
-				Position: math.RandVector2(0, int(w.config.Width), 0, int(w.config.Height)),
-				Mass:     constants.PlayerStartMass,
+				Body: nil,
+				Mass: constants.PlayerStartMass,
 			}, // starter cell
 		},
 		Target: math.Vector2{
@@ -84,28 +82,34 @@ func (w *World) UpdateTarget(playerID uuid.UUID, x, y int) {
 	}
 }
 
-func (w World) Snapshot() WorldState {
+func (w *World) Snapshot() WorldState {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	players := make([]Player, 0, len(w.players))
+	players := make(map[string]Player, len(w.players))
 	for _, p := range w.players {
-		players = append(players, *p)
+		players[p.ID.String()] = *p
 	}
 
 	pellets := make([]Pellet, len(w.pellets))
-	for i, p := range w.pellets {
-		pellets[i] = p
-	}
+	copy(pellets, w.pellets)
 
 	viruses := make([]Virus, len(w.viruses))
-	for i, v := range w.viruses {
-		viruses[i] = v
-	}
+	copy(viruses, w.viruses)
 
 	return WorldState{
 		Players: players,
 		Pellets: pellets,
 		Viruses: viruses,
 	}
+}
+
+func (w *World) getPlayerStartPosition() math.Vector2 {
+	// TODO: search for empty space for starting pos
+	return math.RandVector2(
+		0,
+		int(w.config.Width),
+		0,
+		int(w.config.Height),
+	)
 }

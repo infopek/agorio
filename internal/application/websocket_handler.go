@@ -40,6 +40,13 @@ func (app *Application) WebsocketHandler(w http.ResponseWriter, r *http.Request)
 		app.world.RemovePlayer(player.ID)
 	}()
 
+	// The client should know who they are, one-time thingy
+	initMsg := map[string]any{
+		"type": "init",
+		"player_id": player.ID,
+	}
+	conn.WriteJSON(initMsg)
+
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {

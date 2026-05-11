@@ -2,18 +2,17 @@ package application
 
 import (
 	"encoding/json"
-	_"fmt"
-	"time"
+	_ "fmt"
 	"sync"
+	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 
 	"github.com/infopek/agorio/internal/constants"
 	"github.com/infopek/agorio/internal/models"
 	"github.com/infopek/agorio/internal/types"
 )
-
 
 type ApplicationConfig struct {
 	ApplicationName string
@@ -25,7 +24,7 @@ type Application struct {
 	config ApplicationConfig
 	world  *models.World
 
-	clients map[*websocket.Conn]uuid.UUID	// player IDs
+	clients map[*websocket.Conn]uuid.UUID // player IDs
 
 	mu sync.RWMutex
 }
@@ -71,4 +70,3 @@ func (app *Application) BroadcastState() error {
 
 	return nil
 }
-

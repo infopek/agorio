@@ -7,8 +7,8 @@ import (
 )
 
 type Player struct {
-	ID     uuid.UUID    `json:"-"`
-	Name   string       `json:"name"`
-	Cells  []Cell       `json:"cells"`
-	Target math.Vector2 `json:"-"`
+	ID       uuid.UUID    `json:"-"`
+	Name     string       `json:"name"`
+	Cells    []Cell       `json:"cells"`
+	Target   math.Vector2 `json:"-"`
 }
