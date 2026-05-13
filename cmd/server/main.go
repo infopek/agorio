@@ -13,8 +13,10 @@ func main() {
 
 	app := application.NewApplication(application.ApplicationConfig{
 		ApplicationName: "Agorio",
-		WorldWidth:      constants.DefaultWorldWidth,
-		WorldHeight:     constants.DefaultWorldHeight,
+		WorldWidth:      constants.WorldWidth,
+		WorldHeight:     constants.WorldHeight,
+		CanvasWidth:     constants.CanvasWidth,
+		CanvasHeight:    constants.CanvasHeight,
 	})
 
 	http.Handle("/", http.FileServer(http.Dir("./cmd/server/static")))

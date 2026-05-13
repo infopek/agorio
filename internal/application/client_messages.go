@@ -1,8 +1,11 @@
 package application
 
+import (
+	"github.com/infopek/agorio/internal/types"
+)
+
 type ClientMessage struct {
 	Type string
-	X    int
-	Y    int
+	X    types.Real
+	Y    types.Real
 }
-

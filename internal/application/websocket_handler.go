@@ -65,8 +65,9 @@ func (app *Application) WebsocketHandler(w http.ResponseWriter, r *http.Request)
 			playerID := app.clients[conn]
 			app.mu.RUnlock()
 
-			app.world.UpdateTarget(playerID, msg.X, msg.Y)
+			worldX, worldY := app.canvasToWorld(msg.X, msg.Y)
+			log.Printf("Target: %v, %v", worldX, worldY)
+			app.world.UpdateTarget(playerID, worldX, worldY)
 		}
-		log.Printf("Message received: %v\n", msg)
 	}
 }

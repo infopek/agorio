@@ -6,15 +6,18 @@ import (
 
 const (
 	// App
-	Port               types.Integer = 8080
-	DefaultWorldWidth  types.Real    = 2000.0
-	DefaultWorldHeight types.Real    = 2000.0
-	TickRate           types.Real    = 60.0 // Hz
-	MaxPlayers         types.Integer = 10
+	Port         types.Integer = 8080
+	WorldWidth   types.Real    = 2000.0
+	WorldHeight  types.Real    = 2000.0
+	CanvasWidth  types.Real    = 800.0
+	CanvasHeight types.Real    = 600.0
+	TickRate     types.Real    = 60.0 // Hz
+	MaxPlayers   types.Integer = 10
 
 	// Game
-	PlayerStartMass types.Real    = 10.0
+	PlayerStartMass types.Real    = 3.0
 	PlayerMaxCells  types.Integer = 16
+	PlayerBaseSpeed types.Real    = 100.0
 
 	VirusMinStage   types.Integer = 0
 	VirusMaxStage   types.Integer = 7
@@ -25,7 +28,8 @@ const (
 	PelletStartCount types.Integer = 20
 
 	// Math / Physics
-	DefaultRestitution  types.Real    = 0.2
-	Dt                  types.Real    = 1.0 / types.Real(TickRate)
-	CollisionIterations int = 3
+	Dt                   types.Real    = 1.0 / types.Real(TickRate)
+	CollisionIterations  types.Integer = 3
+	PosCorrectionPercent types.Real    = 0.8
+	PosCorrectionSlop    types.Real    = 0.01
 )

@@ -54,7 +54,7 @@ function drawPlayers(data) {
             const screenCoords = worldToScreen(pos.x, pos.y);
 
             ctx.beginPath();
-            ctx.arc(screenCoords.x, screenCoords.y, cell.mass, 0, 2 * Math.PI);
+            ctx.arc(screenCoords.x, screenCoords.y, cell.body.mass, 0, 2 * Math.PI);
             ctx.strokeStyle = getPlayerColor(playerID);
             ctx.stroke();
         }
@@ -123,13 +123,6 @@ function worldToScreen(worldX, worldY) {
     };
 }
 
-function screenToWorld(screenX, screenY) {
-    return {
-        x: screenX + camera.x - canvas.width / 2,
-        y: screenY + camera.y - canvas.height / 2
-    }
-}
-
 function updateCamera(cells) {
     if (!cells.length) {
         return;
@@ -152,10 +145,8 @@ canvas.addEventListener("mousemove", (event) => {
     }
 
     const rect = canvas.getBoundingClientRect();
-    const { x, y } = screenToWorld(
-        event.clientX - rect.left,
-        event.clientY - rect.top,
-    );
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
     ws.send(JSON.stringify({
         type: "move",
         x:    x,

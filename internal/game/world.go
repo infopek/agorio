@@ -1,12 +1,14 @@
-package models
+package game
 
 import (
 	"sync"
+	_"log"
 
 	"github.com/google/uuid"
 
 	"github.com/infopek/agorio/internal/constants"
 	"github.com/infopek/agorio/internal/math"
+	"github.com/infopek/agorio/internal/physics"
 	"github.com/infopek/agorio/internal/types"
 )
 
@@ -22,11 +24,15 @@ type WorldConfig struct {
 }
 
 type World struct {
-	config  WorldConfig
+	config     WorldConfig
+	iterations types.Integer // solver iters
+
 	players map[uuid.UUID]*Player
 	pellets []Pellet
 	viruses []Virus
-	mu      sync.RWMutex
+	bodies  []*physics.Body // all physics bodies
+
+	mu sync.RWMutex
 }
 
 func NewWorld(config WorldConfig) *World {
@@ -42,13 +48,16 @@ func (w *World) AddPlayer(name string) *Player {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	startingCell := physics.NewCircle(constants.PlayerStartMass)
 	player := &Player{
 		ID:   uuid.New(),
 		Name: name,
 		Cells: []Cell{
 			Cell{
-				Body: nil,
-				Mass: constants.PlayerStartMass,
+				Body: physics.NewBody(
+					&startingCell,
+					w.getPlayerStartPosition(),
+				),
 			}, // starter cell
 		},
 		Target: math.Vector2{
@@ -68,17 +77,41 @@ func (w *World) RemovePlayer(playerID uuid.UUID) {
 	delete(w.players, playerID)
 }
 
-func (w *World) Update() error {
-	return nil
+func (w *World) Update(dt types.Real) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	// Apply input
+	for _, p := range w.players {
+		for _, c := range p.Cells {
+			dir := math.Sub(p.Target, c.Body.Position)
+			if dir.LengthSq() > 0.0 {
+				dir = dir.Normalized()
+
+				speed := constants.PlayerBaseSpeed / math.Sqrt(c.Body.Mass)
+				c.Body.Velocity = math.Mul(dir, speed)
+			} else {
+				c.Body.Velocity = math.Vector2{X: 0.0, Y: 0.0}
+			}
+		}
+	}
+
+	// Euler integration
+	for _, p := range w.players {
+		for _, c := range p.Cells {
+			c.Body.Position.Addi(math.Mul(c.Body.Velocity, dt))
+			w.clampPosition(&c)
+		}
+	}
 }
 
-func (w *World) UpdateTarget(playerID uuid.UUID, x, y int) {
+func (w *World) UpdateTarget(playerID uuid.UUID, x, y types.Real) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	if p, ok := w.players[playerID]; ok {
-		p.Target.X = types.Real(x)
-		p.Target.Y = types.Real(y)
+		p.Target.X = x
+		p.Target.Y = y
 	}
 }
 
@@ -113,3 +146,8 @@ func (w *World) getPlayerStartPosition() math.Vector2 {
 		int(w.config.Height),
 	)
 }
+
+func (w *World) clampPosition(c *Cell) {
+	// Make sure cell is not outside world borders
+}
+

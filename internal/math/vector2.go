@@ -10,6 +10,13 @@ type Vector2 struct {
 }
 
 /**
+ * Returns the squared length of v
+ */
+func (v Vector2) LengthSq() types.Real {
+	return v.X*v.X + v.Y + v.Y
+}
+
+/**
  * Returns a new vector that is the addition of lhs and rhs
  */
 func Add(lhs, rhs Vector2) Vector2 {
@@ -20,15 +27,15 @@ func Add(lhs, rhs Vector2) Vector2 {
 }
 
 /**
- * Adds other to v, and returns the result
+ * Returns a new vector that is the addition of lhs and rhs
  */
-func (v *Vector2) Add(other Vector2) *Vector2 {
-	v.X += other.X
-	v.Y += other.Y
-	return v
+func Sub(lhs, rhs Vector2) Vector2 {
+	return Vector2{
+		X: lhs.X - rhs.X,
+		Y: lhs.Y - rhs.Y,
+	}
 }
 
-// Scalar multiplication
 /**
  * Returns a new vector that's elements are v's elements
  *  multiplied by scalar
@@ -38,6 +45,15 @@ func Mul(v Vector2, scalar types.Real) Vector2 {
 		X: v.X * scalar,
 		Y: v.Y * scalar,
 	}
+}
+
+/**
+ * Adds other to v, and returns the result
+ */
+func (v *Vector2) Addi(other Vector2) *Vector2 {
+	v.X += other.X
+	v.Y += other.Y
+	return v
 }
 
 /**
@@ -56,6 +72,34 @@ func (v *Vector2) Addsi(other Vector2, scalar types.Real) *Vector2 {
 	v.X += other.X * scalar
 	v.Y += other.Y * scalar
 	return v
+}
+
+/**
+ * Returns a new vector with elements divided by scalar
+ */
+func Div(v Vector2, scalar types.Real) Vector2 {
+	return Vector2{
+		X: v.X / scalar,
+		Y: v.Y / scalar,
+	}
+}
+
+/**
+ * Returns the dot product of v and other
+ */
+func (v *Vector2) Dot(other Vector2) types.Real {
+	return v.X*other.X + v.Y*other.Y
+}
+
+/**
+ * Returns the normalized vector of v
+ */
+func (v Vector2) Normalized() Vector2 {
+	length := Sqrt(v.LengthSq())
+	return Vector2{
+		X: v.X / length,
+		Y: v.Y / length,
+	}
 }
 
 /**

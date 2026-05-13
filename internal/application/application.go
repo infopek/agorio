@@ -2,7 +2,7 @@ package application
 
 import (
 	"encoding/json"
-	_ "fmt"
+	_"log"
 	"sync"
 	"time"
 
@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/infopek/agorio/internal/constants"
-	"github.com/infopek/agorio/internal/models"
+	"github.com/infopek/agorio/internal/game"
 	"github.com/infopek/agorio/internal/types"
 )
 
@@ -18,11 +18,13 @@ type ApplicationConfig struct {
 	ApplicationName string
 	WorldWidth      types.Real
 	WorldHeight     types.Real
+	CanvasWidth     types.Real
+	CanvasHeight    types.Real
 }
 
 type Application struct {
 	config ApplicationConfig
-	world  *models.World
+	world  *game.World
 
 	clients map[*websocket.Conn]uuid.UUID // player IDs
 
@@ -30,7 +32,7 @@ type Application struct {
 }
 
 func NewApplication(config ApplicationConfig) *Application {
-	world := models.NewWorld(models.WorldConfig{
+	world := game.NewWorld(game.WorldConfig{
 		Width:  config.WorldWidth,
 		Height: config.WorldHeight,
 	})
@@ -46,7 +48,7 @@ func (app *Application) Run() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		app.world.Update()
+		app.world.Update(constants.Dt)
 
 		app.BroadcastState()
 	}
@@ -69,4 +71,23 @@ func (app *Application) BroadcastState() error {
 	}
 
 	return nil
+}
+
+func (app *Application) canvasToWorld(canvasX, canvasY types.Real) (worldX, worldY types.Real) {
+	if canvasX < 0 {
+		canvasX = 0
+	}
+	if canvasX > app.config.CanvasWidth {
+		canvasX = app.config.CanvasWidth
+	}
+	if canvasY < 0 {
+		canvasY = 0
+	}
+	if canvasY > app.config.CanvasHeight {
+		canvasY = app.config.CanvasHeight
+	}
+
+	worldX = (canvasX / app.config.CanvasWidth) * app.config.WorldWidth
+	worldY = (canvasY / app.config.CanvasHeight) * app.config.WorldHeight
+	return
 }
