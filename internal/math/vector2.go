@@ -13,7 +13,7 @@ type Vector2 struct {
  * Returns the squared length of v
  */
 func (v Vector2) LengthSq() types.Real {
-	return v.X*v.X + v.Y + v.Y
+	return v.X*v.X + v.Y*v.Y
 }
 
 /**
