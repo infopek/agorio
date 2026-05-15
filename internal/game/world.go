@@ -1,8 +1,8 @@
 package game
 
 import (
+	"log"
 	"sync"
-	_"log"
 
 	"github.com/google/uuid"
 
@@ -52,18 +52,15 @@ func (w *World) AddPlayer(name string) *Player {
 	player := &Player{
 		ID:   uuid.New(),
 		Name: name,
-		Cells: []Cell{
-			Cell{
+		Cells: []*Cell{
+			&Cell{
 				Body: physics.NewBody(
 					&startingCell,
 					w.getPlayerStartPosition(),
 				),
+				Direction: math.Vector2{},
 			}, // starter cell
 		},
-		Target: math.Vector2{
-			X: w.config.Width / 2.0,
-			Y: w.config.Height / 2.0,
-		}, // starter target points to middle of world
 	}
 	w.players[player.ID] = player
 
@@ -84,15 +81,13 @@ func (w *World) Update(dt types.Real) {
 	// Apply input
 	for _, p := range w.players {
 		for _, c := range p.Cells {
-			dir := math.Sub(p.Target, c.Body.Position)
-			if dir.LengthSq() > 0.0 {
-				dir = dir.Normalized()
-
+			if c.Direction.LengthSq() > 0.0 {
 				speed := constants.PlayerBaseSpeed / math.Sqrt(c.Body.Mass)
-				c.Body.Velocity = math.Mul(dir, speed)
+				c.Body.Velocity = math.Mul(c.Direction, speed)
 			} else {
 				c.Body.Velocity = math.Vector2{X: 0.0, Y: 0.0}
 			}
+			c.Body.Velocity = math.Vector2{X: 100.0, Y: 0.0}
 		}
 	}
 
@@ -100,18 +95,29 @@ func (w *World) Update(dt types.Real) {
 	for _, p := range w.players {
 		for _, c := range p.Cells {
 			c.Body.Position.Addi(math.Mul(c.Body.Velocity, dt))
-			w.clampPosition(&c)
+			w.clampPosition(c)
 		}
 	}
 }
 
-func (w *World) UpdateTarget(playerID uuid.UUID, x, y types.Real) {
+func (w *World) UpdateDirection(playerID uuid.UUID, x, y types.Real) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if p, ok := w.players[playerID]; ok {
-		p.Target.X = x
-		p.Target.Y = y
+	p, ok := w.players[playerID]
+	if !ok {
+		return
+	}
+
+	targetPos := math.Vector2{X: x, Y: y}
+	for _, cell := range p.Cells {
+		dir := math.Sub(targetPos, cell.Body.Position)
+		log.Printf("Cell pos: (%.1f, %.1f) | Target world: (%.1f, %.1f) | Delta: (%.3f, %.3f)",
+			cell.Body.Position.X, cell.Body.Position.Y,
+			targetPos.X, targetPos.Y,
+			dir.X, dir.Y)
+		cell.Direction = dir.Normalized()
+		log.Printf("UpdateDirection: cell %p, direction set to %v", cell, cell.Direction)
 	}
 }
 
@@ -150,4 +156,3 @@ func (w *World) getPlayerStartPosition() math.Vector2 {
 func (w *World) clampPosition(c *Cell) {
 	// Make sure cell is not outside world borders
 }
-

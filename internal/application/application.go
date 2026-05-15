@@ -74,19 +74,6 @@ func (app *Application) BroadcastState() error {
 }
 
 func (app *Application) canvasToWorld(canvasX, canvasY types.Real) (worldX, worldY types.Real) {
-	if canvasX < 0 {
-		canvasX = 0
-	}
-	if canvasX > app.config.CanvasWidth {
-		canvasX = app.config.CanvasWidth
-	}
-	if canvasY < 0 {
-		canvasY = 0
-	}
-	if canvasY > app.config.CanvasHeight {
-		canvasY = app.config.CanvasHeight
-	}
-
 	worldX = (canvasX / app.config.CanvasWidth) * app.config.WorldWidth
 	worldY = (canvasY / app.config.CanvasHeight) * app.config.WorldHeight
 	return

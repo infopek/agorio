@@ -13,6 +13,8 @@ const camera = {
 };
 
 let currPlayerID = null;
+let worldWidth = -1;
+let worldHeight = -1;
 
 function connect() {
     ws = new WebSocket("ws://localhost:8080/ws");
@@ -21,6 +23,9 @@ function connect() {
         const data = JSON.parse(event.data);
         if (data.type === "init") {  // should be sent only once when connected
             currPlayerID = data.player_id;
+            worldWidth = data.world_width;
+            worldHeight = data.world_height;
+
             return;
         }
 
@@ -40,6 +45,7 @@ function connect() {
 
 function draw(data) {
     drawGrid();
+    drawWorldBorders();
     drawPlayers(data);
 }
 
@@ -47,10 +53,10 @@ function drawPlayers(data) {
     const players = data.players;
 
     const me = players[currPlayerID];   // currently unused
-    console.log("world coords: ", me.cells[0].body.position);
     for (const [playerID, player] of Object.entries(players)) {
         for (const cell of player.cells) {
             const pos = cell.body.position;
+            console.log("world pos: ", pos.x, pos.y);
             const screenCoords = worldToScreen(pos.x, pos.y);
 
             ctx.beginPath();
@@ -103,6 +109,26 @@ function drawGrid() {
     ctx.restore();
 }
 
+function drawWorldBorders() {
+    const topLeft = worldToScreen(0, 0);
+    const topRight = worldToScreen(worldWidth, 0);
+    const bottomLeft = worldToScreen(0, worldHeight);
+    const bottomRight = worldToScreen(worldWidth, worldHeight);
+
+    ctx.save();
+    ctx.strokestyle = "#000000";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(topLeft.x, topLeft.y);
+    ctx.lineTo(topRight.x, topRight.y);
+    ctx.lineTo(bottomRight.x, bottomRight.y);
+    ctx.lineTo(bottomLeft.x, bottomLeft.y);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+}
+
+
 function clear() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
@@ -147,6 +173,7 @@ canvas.addEventListener("mousemove", (event) => {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+    console.log("coords sent: ", x, y);
     ws.send(JSON.stringify({
         type: "move",
         x:    x,

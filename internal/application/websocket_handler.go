@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/infopek/agorio/internal/constants"
 	"github.com/infopek/agorio/internal/math"
 )
 
@@ -42,8 +43,10 @@ func (app *Application) WebsocketHandler(w http.ResponseWriter, r *http.Request)
 
 	// The client should know who they are, one-time thingy
 	initMsg := map[string]any{
-		"type": "init",
-		"player_id": player.ID,
+		"type":         "init",
+		"player_id":    player.ID,
+		"world_width":  constants.WorldWidth,
+		"world_height": constants.WorldHeight,
 	}
 	conn.WriteJSON(initMsg)
 
@@ -65,9 +68,9 @@ func (app *Application) WebsocketHandler(w http.ResponseWriter, r *http.Request)
 			playerID := app.clients[conn]
 			app.mu.RUnlock()
 
+			log.Printf("Target: %v, %v", msg.X, msg.Y)
 			worldX, worldY := app.canvasToWorld(msg.X, msg.Y)
-			log.Printf("Target: %v, %v", worldX, worldY)
-			app.world.UpdateTarget(playerID, worldX, worldY)
+			app.world.UpdateDirection(playerID, worldX, worldY)
 		}
 	}
 }

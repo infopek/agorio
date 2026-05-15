@@ -73,7 +73,7 @@ func (m *Manifold) Resolve() {
 	)
 
 	// Positional correction
-	m.positionalCorrection()
+	//m.positionalCorrection()
 }
 
 func (m *Manifold) positionalCorrection() {

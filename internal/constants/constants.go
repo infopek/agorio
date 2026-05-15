@@ -17,7 +17,7 @@ const (
 	// Game
 	PlayerStartMass types.Real    = 3.0
 	PlayerMaxCells  types.Integer = 16
-	PlayerBaseSpeed types.Real    = 100.0
+	PlayerBaseSpeed types.Real    = 400.0
 
 	VirusMinStage   types.Integer = 0
 	VirusMaxStage   types.Integer = 7
