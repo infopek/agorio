@@ -1,9 +1,12 @@
 package main
 
 import (
-	"log"
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/infopek/agorio/server/game"
+	"github.com/infopek/agorio/server/net"
 )
 
 const (
@@ -11,10 +14,13 @@ const (
 )
 
 func main() {
+	world := game.NewWorld()
+	server := net.NewServer(world)
+
 	http.Handle("/", http.FileServer(http.Dir("../client")))
 	http.HandleFunc("/ws", server.WebsocketHandler)
 
-	go server.Run()
+	go world.Tick()
 
 	log.Printf("Websocket server started on port %d", port)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
