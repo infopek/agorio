@@ -11,5 +11,7 @@ type Player struct {
 	Name   string
 	Target Vec2 // mouse coords in world space
 
-	OutputChan chan<- TickSnapshot
+	Score uint32
+
+	OutputChan chan<- ServerMessage
 }

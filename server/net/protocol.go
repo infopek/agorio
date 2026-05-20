@@ -3,76 +3,81 @@ package net
 import (
 	"encoding/json"
 	"errors"
-
-	"github.com/google/uuid"
+	"fmt"
 
 	"github.com/infopek/agorio/server/game"
 )
 
 type CellDTO struct {
-	OwnerID uuid.UUID `json:"owner_id"`
+	OwnerID string `json:"owner_id"`
 
-	Position game.Vec2 `json:"position"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 
-	Radius float64  `json:"radius"`
-	Mass   int64    `json:"mass"`
-	Color  [3]uint8 `json:"color"`
+	Radius float64 `json:"radius"`
+	Mass   int64   `json:"mass"`
+	Color  string  `json:"color"`
 }
 
 type PelletDTO struct {
-	Position game.Vec2 `json:"position"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 
-	Radius float64  `json:"radius"`
-	Mass   int64    `json:"mass"`
-	Color  [3]uint8 `json:"color"`
+	Radius float64 `json:"radius"`
+	Mass   int64   `json:"mass"`
+	Color  string  `json:"color"`
 }
 
 type VirusDTO struct {
 	Position game.Vec2 `json:"position"`
 
-	Radius float64  `json:"radius"`
-	Mass   int64    `json:"mass"`
-	Color  [3]uint8 `json:"color"`
+	Radius float64 `json:"radius"`
+	Mass   int64   `json:"mass"`
+	Color  string  `json:"color"`
 }
 
 type TickSnapshotDTO struct {
+	Type    string      `json:"t"`
 	Cells   []CellDTO   `json:"cells"`
 	Pellets []PelletDTO `json:"pellets"`
 	Viruses []VirusDTO  `json:"viruses"`
-	Me      []uuid.UUID `json:"me"`
-	Tick    int64       `json:"tick"`
+	Me      []string    `json:"me"`
+	Tick    uint64      `json:"tick"`
 	Score   uint32      `json:"score"`
 }
 
 func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 	snapshotDTO := TickSnapshotDTO{
+		Type:    "snapshot",
 		Cells:   make([]CellDTO, len(snapshot.Cells)),
 		Pellets: make([]PelletDTO, len(snapshot.Pellets)),
 		Viruses: make([]VirusDTO, len(snapshot.Viruses)),
-		Me:      make([]uuid.UUID, len(snapshot.Me)),
+		Me:      make([]string, len(snapshot.Me)),
 		Tick:    snapshot.Tick,
 		Score:   snapshot.Score,
 	}
 
 	for i, c := range snapshot.Cells {
 		snapshotDTO.Cells[i] = CellDTO{
-			OwnerID: c.OwnerID,
+			OwnerID: c.OwnerID.String(),
 
-			Position: c.Position,
+			X: c.Position.X,
+			Y: c.Position.Y,
 
 			Radius: c.Radius,
 			Mass:   c.Mass,
-			Color:  c.Color,
+			Color:  colorToHex(c.Color),
 		}
 	}
 
 	for i, p := range snapshot.Pellets {
 		snapshotDTO.Pellets[i] = PelletDTO{
-			Position: p.Position,
+			X: p.Position.X,
+			Y: p.Position.Y,
 
 			Radius: p.Radius,
 			Mass:   p.Mass,
-			Color:  p.Color,
+			Color:  colorToHex(p.Color),
 		}
 	}
 
@@ -82,11 +87,13 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 
 			Radius: v.Radius,
 			Mass:   v.Mass,
-			Color:  v.Color,
+			Color:  colorToHex(v.Color),
 		}
 	}
 
-	copy(snapshotDTO.Me, snapshot.Me)
+	for i, id := range snapshot.Me {
+		snapshotDTO.Me[i] = id.String()
+	}
 
 	return snapshotDTO
 }
@@ -133,4 +140,8 @@ func parsePlayerMessage(msg []byte) (game.PlayerMessage, error) {
 	default:
 		return nil, errors.New("unknown input message")
 	}
+}
+
+func colorToHex(c [3]uint8) string {
+	return fmt.Sprintf("#%02x%02x%02x", c[0], c[1], c[2])
 }

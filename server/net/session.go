@@ -25,16 +25,30 @@ func NewSession(conn *websocket.Conn, inputChan chan<- game.PlayerMessage) *Sess
 	}
 }
 
+/** readLoop
+ * Responsible for sending the disconnect, and
+ *  forwarding player inputs to the game
+ *
+ * Stamps every message with the session's player ID
+ */
 func (s *Session) readLoop() {
-	defer close(s.inputChan)
+	defer s.conn.Close()
+	defer func() {
+		s.inputChan <- game.DisconnectMessage{
+			PlayerID: s.playerID,
+		}
+	}()
+
 	for {
 		_, msg, err := s.conn.ReadMessage()
 		if err != nil {
+			log.Printf("error reading message: %v\n", err)
 			return
 		}
 
 		playerMsg, err := parsePlayerMessage(msg)
 		if err != nil {
+			log.Printf("player msg parse error: %v\n", err)
 			return
 		}
 
@@ -56,10 +70,13 @@ func (s *Session) readLoop() {
 	}
 }
 
+/** writeLoop
+ * Serializes each server message, and
+ *  sends it towards the client (player)
+ */
 func (s *Session) writeLoop() {
-	defer close(s.outputChan)
-	for state := range s.outputChan {
-		data, err := toJSON(state)
+	for serverMsg := range s.outputChan {
+		data, err := toJSON(serverMsg)
 		if err != nil {
 			log.Printf("error while converting to json: %v\n", err)
 			continue

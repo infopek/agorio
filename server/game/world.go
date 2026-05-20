@@ -1,7 +1,7 @@
 package game
 
 import (
-	_ "log"
+	"log"
 	"math"
 	"time"
 
@@ -11,13 +11,24 @@ import (
 )
 
 type World struct {
-	Cells     map[uuid.UUID]*Cell
-	Players   map[uuid.UUID]*Player
+	Cells   map[uuid.UUID]*Cell
+	Pellets map[uuid.UUID]*Pellet
+	Viruses map[uuid.UUID]*Virus
+	Players map[uuid.UUID]*Player
+
+	tick uint64
+
 	InputChan chan PlayerMessage // shared across all players
 }
 
 func NewWorld() *World {
-	return &World{}
+	return &World{
+		Cells:     make(map[uuid.UUID]*Cell),
+		Pellets:   make(map[uuid.UUID]*Pellet),
+		Viruses:   make(map[uuid.UUID]*Virus),
+		Players:   make(map[uuid.UUID]*Player),
+		InputChan: make(chan PlayerMessage, 256),
+	}
 }
 
 func (w *World) Tick() {
@@ -25,6 +36,7 @@ func (w *World) Tick() {
 	defer ticker.Stop()
 
 	for range ticker.C {
+		w.tick++
 		w.processInputs()
 
 		// Move cells
@@ -62,8 +74,7 @@ func (w *World) Tick() {
 	}
 }
 
-func (w *World) addPlayer(name string, outputChan chan<- TickSnapshot) {
-	playerID := uuid.New()
+func (w *World) addPlayer(playerID uuid.UUID, name string, outputChan chan<- ServerMessage) {
 	cellID := uuid.New()
 
 	cell := Cell{
@@ -87,8 +98,16 @@ func (w *World) addPlayer(name string, outputChan chan<- TickSnapshot) {
 		OutputChan: outputChan,
 	}
 
+	log.Printf("added player %v with cell %v", player, cell)
 	w.Players[playerID] = &player
 	w.Cells[cellID] = &cell
+}
+
+func (w *World) removePlayer(id uuid.UUID) {
+	log.Printf("removing player")
+	p := w.Players[id]
+	close(p.OutputChan)
+	delete(w.Players, id)
 }
 
 /** processInputs
@@ -105,7 +124,9 @@ DrainLoop:
 		case msg := <-w.InputChan:
 			switch m := msg.(type) {
 			case JoinMessage:
-				w.addPlayer(m.Name, make(chan TickSnapshot))
+				w.addPlayer(m.PlayerID, m.Name, m.OutputChan)
+			case DisconnectMessage:
+				w.removePlayer(m.PlayerID)
 			case MoveMessage:
 				w.Players[m.PlayerID].Target = m.Target
 			default:
@@ -129,9 +150,33 @@ DrainLoop:
 	}
 }
 
-func (w *World) broadcastState() error {
+func (w *World) broadcastState() {
+	cells := make([]Cell, 0, len(w.Cells))
+	pellets := make([]Pellet, 0, len(w.Pellets))
+	viruses := make([]Virus, 0, len(w.Viruses))
 
-	return nil
+	for _, c := range w.Cells {
+		cells = append(cells, *c)
+	}
+	for _, p := range w.Pellets {
+		pellets = append(pellets, *p)
+	}
+	for _, v := range w.Viruses {
+		viruses = append(viruses, *v)
+	}
+
+	for _, p := range w.Players {
+		snapshot := TickSnapshot{
+			Cells:   cells,
+			Pellets: pellets,
+			Viruses: viruses,
+			Me:      p.CellIDs,
+			Score:   p.Score,
+			Tick:    w.tick,
+		}
+
+		p.OutputChan <- snapshot
+	}
 }
 
 /** findStartPosition

@@ -9,9 +9,13 @@ type PlayerMessage interface {
 }
 
 type JoinMessage struct {
-	PlayerID uuid.UUID
-	Name     string
+	PlayerID   uuid.UUID
+	Name       string
 	OutputChan chan<- ServerMessage
+}
+
+type DisconnectMessage struct {
+	PlayerID uuid.UUID
 }
 
 type MoveMessage struct {
@@ -27,7 +31,8 @@ type FeedMessage struct {
 	PlayerID uuid.UUID
 }
 
-func (msg JoinMessage) playerMessage()  {}
-func (msg MoveMessage) playerMessage()  {}
-func (msg SplitMessage) playerMessage() {}
-func (msg FeedMessage) playerMessage()  {}
+func (msg JoinMessage) playerMessage()       {}
+func (msg DisconnectMessage) playerMessage() {}
+func (msg MoveMessage) playerMessage()       {}
+func (msg SplitMessage) playerMessage()      {}
+func (msg FeedMessage) playerMessage()       {}

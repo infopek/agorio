@@ -16,12 +16,11 @@ type TickSnapshot struct {
 	Pellets []Pellet
 	Viruses []Virus
 	Me      []uuid.UUID
-	Tick    int64
+	Tick    uint64
 	Score   uint32
 }
 
 type DeathEvent struct {
-
 }
 
 func (snapshot TickSnapshot) serverMessage() {}
