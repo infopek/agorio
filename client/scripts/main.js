@@ -2,7 +2,7 @@ import { connect } from './net.js';
 import { Camera } from './camera.js';
 import { getSnapshot, update } from './snapshot.js';
 import { render } from './renderer.js';
-import { initInput } from './input.js';
+import { initInput, sendMouseUpdate } from './input.js';
 
 import './vec2.js';
 import './utils.js';
@@ -27,7 +27,10 @@ initInput(canvas, camera);
 function gameLoop() {
     const snapshot = getSnapshot();
     if (snapshot) {
+        sendMouseUpdate(canvas, camera);
+
         camera.update(snapshot, canvas);
+
         render(snapshot, camera, canvas);
     }
     requestAnimationFrame(gameLoop);

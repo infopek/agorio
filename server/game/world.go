@@ -64,6 +64,7 @@ func (w *World) Tick() {
 		//  - Cell hits virus
 
 		// TODO: Spawn pellets
+		w.spawnPellets()
 
 		// TODO: Spawn viruses
 
@@ -98,16 +99,25 @@ func (w *World) addPlayer(playerID uuid.UUID, name string, outputChan chan<- Ser
 		OutputChan: outputChan,
 	}
 
-	log.Printf("added player %v with cell %v", player, cell)
 	w.Players[playerID] = &player
 	w.Cells[cellID] = &cell
+	log.Printf("added player %v with cell %v\n", player.ID, cell.ID)
 }
 
 func (w *World) removePlayer(id uuid.UUID) {
-	log.Printf("removing player")
 	p := w.Players[id]
+	if p == nil {
+		return
+	}
+
+	// Remove player's cells
+	for _, cellID := range p.CellIDs {
+		delete(w.Cells, cellID)
+	}
+
 	close(p.OutputChan)
 	delete(w.Players, id)
+	log.Printf("removed player %v\n", id)
 }
 
 /** processInputs
@@ -150,6 +160,30 @@ DrainLoop:
 	}
 }
 
+func (w *World) spawnPellets() {
+	currNumPellets := int64(len(w.Pellets))
+	if currNumPellets < MinPellets {
+		// Spawn more
+		additionalPelletNum := utils.RandIntRange(0, MaxPellets-currNumPellets)
+		for range additionalPelletNum {
+			randMass := utils.RandIntRange(MinPelletMass, MaxPelletMass)
+			pellet := Pellet{
+				ID: uuid.New(),
+
+				Position: Vec2{
+					X: utils.RandFloatRange(0.0, WorldWidth),
+					Y: utils.RandFloatRange(0.0, WorldHeight),
+				},
+
+				Mass:   randMass,
+				Radius: w.calculateRadius(randMass),
+				Color: utils.GetRandomColor(),
+			}
+			w.Pellets[pellet.ID] = &pellet
+		}
+	}
+}
+
 func (w *World) broadcastState() {
 	cells := make([]Cell, 0, len(w.Cells))
 	pellets := make([]Pellet, 0, len(w.Pellets))
@@ -185,8 +219,8 @@ func (w *World) broadcastState() {
  */
 func (w *World) findStartPosition() Vec2 {
 	return Vec2{
-		X: float64(utils.RandIntRange(0, WorldWidth)),
-		Y: float64(utils.RandIntRange(0, WorldHeight)),
+		X: utils.RandFloatRange(0.0, WorldWidth),
+		Y: utils.RandFloatRange(0.0, WorldHeight),
 	}
 }
 
@@ -195,11 +229,7 @@ func (w *World) findStartPosition() Vec2 {
  *  color collisions as possible
  */
 func (w *World) findStartColor() [3]uint8 {
-	return [3]uint8{
-		uint8(utils.RandIntRange(0, 256)),
-		uint8(utils.RandIntRange(0, 256)),
-		uint8(utils.RandIntRange(0, 256)),
-	}
+	return utils.GetRandomColor()
 }
 
 /** calculateRadius

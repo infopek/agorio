@@ -17,17 +17,22 @@ export function connect() {
 }
 
 /**
+ * @param {Object} obj
+ */
+function send(obj) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(obj));
+    }
+}
+
+/**
  * @param {string} name
  */
 export function sendJoin(name) {
-    if (ws === null) {
-        return;
-    }
-
-    ws.send(JSON.stringify({
+    send({
         t: 'join',
         name: name
-    }));
+    });
 }
 
 /**
@@ -35,30 +40,21 @@ export function sendJoin(name) {
  * @param {number} y
  */
 export function sendMove(x, y) {
-    if (ws === null) {
-        return;
-    }
-
-    console.log('sending move with ', x, 'and ', y);
-    ws.send(JSON.stringify({
+    send({
         t: 'move',
         x: x,
         y: y
-    }));
+    });
 }
 
 /**
  *
  */
 export function sendSplit() {
-    if (ws === null) {
-        return;
-    }
-
     console.log('sending split');
-    ws.send(JSON.stringify({
-        t: 'split',
-    }));
+    send({
+        t: 'split'
+    });
 }
 
 /**
