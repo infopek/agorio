@@ -9,6 +9,7 @@ import (
 )
 
 type CellDTO struct {
+	ID      string `json:"id"`
 	OwnerID string `json:"owner_id"`
 
 	X float64 `json:"x"`
@@ -41,9 +42,13 @@ type TickSnapshotDTO struct {
 	Cells   []CellDTO   `json:"cells"`
 	Pellets []PelletDTO `json:"pellets"`
 	Viruses []VirusDTO  `json:"viruses"`
-	Me      []string    `json:"me"`
+	Me      string      `json:"me"`
 	Tick    uint64      `json:"tick"`
 	Score   uint32      `json:"score"`
+}
+
+type DeathEventDTO struct {
+	Type string `json:"t"`
 }
 
 func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
@@ -52,19 +57,20 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 		Cells:   make([]CellDTO, len(snapshot.Cells)),
 		Pellets: make([]PelletDTO, len(snapshot.Pellets)),
 		Viruses: make([]VirusDTO, len(snapshot.Viruses)),
-		Me:      make([]string, len(snapshot.Me)),
+		Me:      snapshot.Me.String(),
 		Tick:    snapshot.Tick,
 		Score:   snapshot.Score,
 	}
 
 	for i, c := range snapshot.Cells {
 		snapshotDTO.Cells[i] = CellDTO{
+			ID:      c.ID.String(),
 			OwnerID: c.OwnerID.String(),
 
 			X: c.Position.X,
 			Y: c.Position.Y,
 
-			Radius: c.Radius,
+			Radius: c.Radius(),
 			Mass:   c.Mass,
 			Color:  colorToHex(c.Color),
 		}
@@ -75,7 +81,7 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			X: p.Position.X,
 			Y: p.Position.Y,
 
-			Radius: p.Radius,
+			Radius: p.Radius(),
 			Mass:   p.Mass,
 			Color:  colorToHex(p.Color),
 		}
@@ -85,17 +91,19 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 		snapshotDTO.Viruses[i] = VirusDTO{
 			Position: v.Position,
 
-			Radius: v.Radius,
+			Radius: v.Radius(),
 			Mass:   v.Mass,
 			Color:  colorToHex(v.Color),
 		}
 	}
 
-	for i, id := range snapshot.Me {
-		snapshotDTO.Me[i] = id.String()
-	}
-
 	return snapshotDTO
+}
+
+func deathEventToDeathEventDTO(_ game.DeathEvent) DeathEventDTO {
+	return DeathEventDTO{
+		Type: "death",
+	}
 }
 
 func toJSON(msg game.ServerMessage) ([]byte, error) {
@@ -108,7 +116,12 @@ func toJSON(msg game.ServerMessage) ([]byte, error) {
 		}
 		return data, nil
 	case game.DeathEvent:
-		return nil, nil
+		dto := deathEventToDeathEventDTO(m)
+		data, err := json.Marshal(dto)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
 	default:
 		return nil, nil
 	}

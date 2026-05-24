@@ -1,4 +1,4 @@
-import { sendJoin, sendMove } from './net.js';
+import { sendJoin, sendMove, sendSplit, sendFeed } from './net.js';
 import { Camera } from './camera.js';
 
 const menu = document.getElementById('menu');
@@ -19,6 +19,21 @@ export function sendMouseUpdate(canvas, camera) {
 }
 
 /**
+ * @param {boolean} show
+ */
+export function toggleMenu(show) {
+    if (!menu) {
+        throw new Error('missing #menu');
+    }
+
+    if (show) {
+        menu.classList.remove('hidden');
+    } else {
+        menu.classList.add('hidden');
+    }
+}
+
+/**
  * @param {HTMLCanvasElement} canvas
  * @param {Camera} camera
  */
@@ -34,15 +49,29 @@ export function initInput(canvas, camera) {
     }
 
     canvas.addEventListener('mousemove', (e) => {
-         mouseX = e.clientX;
-         mouseY = e.clientY;
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        camera.zoomBy(e.deltaY > 0 ? 0.9 : 1.1);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            sendSplit();
+        }
+        if (e.code === 'KeyW') {
+            sendFeed();
+        }
     });
 
     playBtn.addEventListener('click', () => {
         // @ts-ignore
         const name = nameInput.value.trim() || 'Player';
         sendJoin(name);
-        menu.classList.add('hidden');
+        toggleMenu(false);    // hide menu
     });
 }
 

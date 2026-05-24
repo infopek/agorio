@@ -1,7 +1,9 @@
-import { update } from './snapshot.js';
+import { pushSnapshot } from './interpolation.js';
+import { toggleMenu } from './input.js';
 
 /** @type {WebSocket | null} */
 let ws = null;
+let alive = false;
 
 export function connect() {
     ws = new WebSocket("ws://localhost:8080/ws");
@@ -9,14 +11,18 @@ export function connect() {
     ws.onmessage = (msg) => {
         const data = JSON.parse(msg.data);
         if (data.t === 'snapshot') {
-            update(data);
+            pushSnapshot(data);
+        } else if (data.t === 'death') {
+            alive = false;
+            toggleMenu(true);   // show menu
         }
     }
     ws.onerror = (e) => console.error('error: ', e);
     ws.onclose = (e) => console.error('closed: ', e.code, e.reason);
 }
 
-/**
+/** send
+ *
  * @param {Object} obj
  */
 function send(obj) {
@@ -26,6 +32,7 @@ function send(obj) {
 }
 
 /**
+ *
  * @param {string} name
  */
 export function sendJoin(name) {
@@ -33,9 +40,11 @@ export function sendJoin(name) {
         t: 'join',
         name: name
     });
+    alive = true;
 }
 
-/**
+/** sendMove
+ *
  * @param {number} x
  * @param {number} y
  */
@@ -47,26 +56,20 @@ export function sendMove(x, y) {
     });
 }
 
-/**
+/** sendSplit
  *
  */
 export function sendSplit() {
-    console.log('sending split');
     send({
         t: 'split'
     });
 }
 
-/**
+/** sendFeed
  *
  */
 export function sendFeed() {
-    if (ws === null) {
-        return;
-    }
-
-    console.log('sending feed');
-    ws.send(JSON.stringify({
+    send({
         t: 'feed',
-    }));
+    });
 }

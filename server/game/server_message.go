@@ -12,16 +12,15 @@ type ServerMessage interface {
  * Everything a client needs to know per tick
  */
 type TickSnapshot struct {
+	Me      uuid.UUID // client player id
 	Cells   []Cell
 	Pellets []Pellet
 	Viruses []Virus
-	Me      []uuid.UUID
 	Tick    uint64
 	Score   uint32
 }
 
-type DeathEvent struct {
-}
+type DeathEvent struct{}
 
 func (snapshot TickSnapshot) serverMessage() {}
 func (deathEvent DeathEvent) serverMessage() {}

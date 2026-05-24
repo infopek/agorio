@@ -1,4 +1,4 @@
-package utils
+package game
 
 import (
 	"math/rand"
@@ -12,10 +12,12 @@ func RandFloatRange(lo, hi float64) float64 {
 	return rand.Float64()*(hi-lo) + lo
 }
 
-func GetRandomColor() [3]uint8 {
-	return [3]uint8{
-		uint8(RandIntRange(0, 256)),
-		uint8(RandIntRange(0, 256)),
-		uint8(RandIntRange(0, 256)),
+func Clamp(val, lo, hi float64) float64 {
+	if val < lo {
+		return lo
 	}
+	if val > hi {
+		return hi
+	}
+	return val
 }

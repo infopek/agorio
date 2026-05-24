@@ -1,8 +1,8 @@
 import { connect } from './net.js';
 import { Camera } from './camera.js';
-import { getSnapshot, update } from './snapshot.js';
 import { render } from './renderer.js';
 import { initInput, sendMouseUpdate } from './input.js';
+import { getInterpolated } from './interpolation.js';
 
 import './vec2.js';
 import './utils.js';
@@ -25,7 +25,7 @@ const camera = new Camera();
 initInput(canvas, camera);
 
 function gameLoop() {
-    const snapshot = getSnapshot();
+    const snapshot = getInterpolated();
     if (snapshot) {
         sendMouseUpdate(canvas, camera);
 

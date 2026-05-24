@@ -1,13 +1,11 @@
 package game
 
 import (
-	"log"
+	_ "log"
 	"math"
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/infopek/agorio/server/utils"
 )
 
 type World struct {
@@ -42,28 +40,105 @@ func (w *World) Tick() {
 		// Move cells
 		for _, p := range w.Players {
 			for _, id := range p.CellIDs {
-				cell := w.Cells[id]
-				if cell.Momentum.MagnitudeSq() != 0.0 {
-					// TODO: apply post-split momentum, then decay
-				} else {
-					dir := p.Target.Sub(cell.Position).Normalize()
-					vel := dir.Scale(w.calculateSpeed(cell.Mass))
-					cell.Position = cell.Position.Add(vel)
+				cell, ok := w.Cells[id]
+				if !ok {
+					continue // cell doesn't exit
 				}
-				// TODO: clamp to world bounds
+
+				// Cell may have post-split momentum
+				if cell.Momentum.MagnitudeSq() != 0.0 {
+					cell.Position = cell.Position.Add(cell.Momentum)
+					cell.Momentum = cell.Momentum.Scale(SplitVelocityDecay)
+					if cell.Momentum.MagnitudeSq() < 0.01 {
+						cell.Momentum = Vec2{}
+					}
+				}
+
+				// Calculate new direction and velocity
+				desired := p.Target.Sub(cell.Position).Normalize()
+				cell.Direction = cell.Direction.Add(
+					desired.Sub(cell.Direction).Scale(TurnSpeed), // smooth turning towards desired dir
+				).Normalize()
+				cell.Position = cell.Position.Add(
+					cell.Direction.Scale(
+						w.calculateSpeed(cell.Mass), // velocity in the direction of cell
+					),
+				)
 			}
 		}
 
-		// TODO: Decay split cooldown
+		// Collisions
+		for _, p := range w.Players {
+			for i, idA := range p.CellIDs {
+				cellA := w.Cells[idA]
+				for _, idB := range p.CellIDs[i+1:] {
+					cellB := w.Cells[idB]
+					diff := cellB.Position.Sub(cellA.Position)
+					dist := diff.Magnitude()
+					minDist := cellA.Radius() + cellB.Radius()
+					if dist < minDist && dist > 0 {
+						// Push apart
+						overlap := minDist - dist
+						push := diff.Normalize().Scale(overlap * 0.5)
 
-		// TODO: Recombine
+						cellA.Position = cellA.Position.Sub(push)
+						cellB.Position = cellB.Position.Add(push)
+					}
+				}
+			}
+		}
 
-		// TODO: Check eating
-		//  - Cell eats pellet (food)
-		//  - Cell eats smaller cell
-		//  - Cell hits virus
+		// Clamp to world bounds
+		for _, p := range w.Players {
+			for _, id := range p.CellIDs {
+				cell, ok := w.Cells[id]
+				if !ok {
+					continue // cell doesn't exist
+				}
 
-		// TODO: Spawn pellets
+				cell.Position.X = Clamp(cell.Position.X, 0.0, WorldWidth)
+				cell.Position.Y = Clamp(cell.Position.Y, 0.0, WorldHeight)
+
+				// TODO: Decay split cooldown
+
+				// TODO: Recombine
+
+				for _, pellet := range w.Pellets {
+					if cell.Position.DistanceTo(pellet.Position) < cell.Radius() {
+						// Eat the pellet
+						cell.Mass += pellet.Mass * 4
+						delete(w.Pellets, pellet.ID)
+					}
+				}
+				for _, otherCell := range w.Cells {
+					if otherCell.OwnerID == p.ID {
+						continue // we don't eat our own cells
+					}
+
+					if float64(cell.Mass) <= float64(otherCell.Mass)*EatMassThreshold {
+						continue // we are not big enough
+					}
+
+					if cell.Position.DistanceTo(otherCell.Position) >=
+						(cell.Radius() - otherCell.Radius()*EatDistanceThreshold) {
+						continue // we are not overlapping enough
+					}
+
+					// Eat the cell
+					cell.Mass += otherCell.Mass
+					victim := w.Players[otherCell.OwnerID]
+					victim.removeCell(otherCell.ID)
+					delete(w.Cells, otherCell.ID)
+
+					if len(victim.CellIDs) == 0 {
+						w.handlePlayerRemove(victim.ID) // dead
+					}
+				}
+
+				// TODO: Cell hits virus
+			}
+		}
+
 		w.spawnPellets()
 
 		// TODO: Spawn viruses
@@ -75,109 +150,23 @@ func (w *World) Tick() {
 	}
 }
 
-func (w *World) addPlayer(playerID uuid.UUID, name string, outputChan chan<- ServerMessage) {
-	cellID := uuid.New()
-
-	cell := Cell{
-		ID:      cellID,
-		OwnerID: playerID,
-
-		Position: w.findStartPosition(),
-		Momentum: Vec2{},
-
-		Radius: w.calculateRadius(StartMass),
-		Mass:   StartMass,
-		Color:  w.findStartColor(),
-	}
-	player := Player{
-		ID:      playerID,
-		CellIDs: []uuid.UUID{cellID},
-
-		Name:   name,
-		Target: Vec2{},
-
-		OutputChan: outputChan,
-	}
-
-	w.Players[playerID] = &player
-	w.Cells[cellID] = &cell
-	log.Printf("added player %v with cell %v\n", player.ID, cell.ID)
-}
-
-func (w *World) removePlayer(id uuid.UUID) {
-	p := w.Players[id]
-	if p == nil {
-		return
-	}
-
-	// Remove player's cells
-	for _, cellID := range p.CellIDs {
-		delete(w.Cells, cellID)
-	}
-
-	close(p.OutputChan)
-	delete(w.Players, id)
-	log.Printf("removed player %v\n", id)
-}
-
-/** processInputs
- * First, it consumes the move messages, so that all the
- *  actions are working with up-to-date target vectors
- */
-func (w *World) processInputs() {
-	var actions []PlayerMessage
-
-	// Drain channel, why tf do I need labels
-DrainLoop:
-	for {
-		select {
-		case msg := <-w.InputChan:
-			switch m := msg.(type) {
-			case JoinMessage:
-				w.addPlayer(m.PlayerID, m.Name, m.OutputChan)
-			case DisconnectMessage:
-				w.removePlayer(m.PlayerID)
-			case MoveMessage:
-				w.Players[m.PlayerID].Target = m.Target
-			default:
-				actions = append(actions, msg)
-			}
-		default:
-			break DrainLoop
-		}
-	}
-
-	// Execute actions
-	for _, msg := range actions {
-		switch m := msg.(type) {
-		case SplitMessage:
-			w.splitPlayer(m.PlayerID)
-		case FeedMessage:
-			w.ejectMass(m.PlayerID)
-		default:
-			return // shouldn't happen
-		}
-	}
-}
-
 func (w *World) spawnPellets() {
 	currNumPellets := int64(len(w.Pellets))
 	if currNumPellets < MinPellets {
 		// Spawn more
-		additionalPelletNum := utils.RandIntRange(0, MaxPellets-currNumPellets)
+		additionalPelletNum := RandIntRange(0, MaxPellets-currNumPellets)
 		for range additionalPelletNum {
-			randMass := utils.RandIntRange(MinPelletMass, MaxPelletMass)
+			randMass := RandIntRange(MinPelletMass, MaxPelletMass)
 			pellet := Pellet{
 				ID: uuid.New(),
 
 				Position: Vec2{
-					X: utils.RandFloatRange(0.0, WorldWidth),
-					Y: utils.RandFloatRange(0.0, WorldHeight),
+					X: RandFloatRange(0.0, WorldWidth),
+					Y: RandFloatRange(0.0, WorldHeight),
 				},
 
-				Mass:   randMass,
-				Radius: w.calculateRadius(randMass),
-				Color: utils.GetRandomColor(),
+				Mass:  randMass,
+				Color: w.findStartColor(),
 			}
 			w.Pellets[pellet.ID] = &pellet
 		}
@@ -201,10 +190,10 @@ func (w *World) broadcastState() {
 
 	for _, p := range w.Players {
 		snapshot := TickSnapshot{
+			Me:      p.ID,
 			Cells:   cells,
 			Pellets: pellets,
 			Viruses: viruses,
-			Me:      p.CellIDs,
 			Score:   p.Score,
 			Tick:    w.tick,
 		}
@@ -219,8 +208,8 @@ func (w *World) broadcastState() {
  */
 func (w *World) findStartPosition() Vec2 {
 	return Vec2{
-		X: utils.RandFloatRange(0.0, WorldWidth),
-		Y: utils.RandFloatRange(0.0, WorldHeight),
+		X: RandFloatRange(0.0, WorldWidth),
+		Y: RandFloatRange(0.0, WorldHeight),
 	}
 }
 
@@ -229,23 +218,21 @@ func (w *World) findStartPosition() Vec2 {
  *  color collisions as possible
  */
 func (w *World) findStartColor() [3]uint8 {
-	return utils.GetRandomColor()
+	return getRandomColor()
 }
 
-/** calculateRadius
- * Cell radius is a function of mass
- *
- * radius = radiusScale * sqrt(mass)
- */
-func (w *World) calculateRadius(mass int64) float64 {
-	return RadiusScale * math.Sqrt(float64(mass))
+func getRandomColor() [3]uint8 {
+	return [3]uint8{
+		uint8(RandIntRange(0, 256)),
+		uint8(RandIntRange(0, 256)),
+		uint8(RandIntRange(0, 256)),
+	}
 }
 
 /** calculateSpeed
  * Cell speed is a function of mass
- *
- * sp = baseSp * (1.0 / sqrt(mass / startMass))
  */
 func (w *World) calculateSpeed(mass int64) float64 {
-	return BaseSpeed * (1.0 / math.Sqrt(float64(mass)/float64(StartMass)))
+	speed := BaseSpeed * math.Pow(float64(StartMass)/float64(mass), SpeedExponent)
+	return math.Max(speed, MinSpeed)
 }
