@@ -4,8 +4,9 @@ let prev = null;
 /**
  * @typedef {{id: string, owner_id: string, owner_name: string, x: number, y: number, radius: number, mass: number, color: string}} CellData
  * @typedef {{x: number, y: number, radius: number, mass: number, color: string}} PelletData
+ * @typedef {{id: string, x: number, y: number, radius: number, mass: number, color: string}} EjectData
  * @typedef {{x: number, y: number, radius: number, mass: number, color: string}} VirusData
- * @typedef {{cells: CellData[], pellets: PelletData[], viruses: VirusData[], me: string, score: number, tick: number}} Snapshot
+ * @typedef {{cells: CellData[], pellets: PelletData[], ejects: EjectData[], viruses: VirusData[], me: string, score: number, tick: number}} Snapshot
  */
 
 /** @type {Snapshot | null} snapshot */
@@ -54,5 +55,18 @@ function interpolateState(s1, s2, t) {
             y: p.y + (c.y - p.y) * t
         };
     });
-    return { ...s1, cells: cells };
+    const ejects = s2.ejects.map(e => {
+        const p = s1.ejects.find(pe => pe.id === e.id);
+        if (!p) {
+            return e;   // new eject, no prev
+        }
+
+        return {
+            ...e,
+            x: p.x + (e.x - p.x) * t,
+            y: p.y + (e.y - p.y) * t
+        };
+    });
+
+    return { ...s1, cells: cells, ejects: ejects };
 }

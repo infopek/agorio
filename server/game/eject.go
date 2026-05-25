@@ -1,10 +1,12 @@
 package game
 
 import (
+	"math"
+
 	"github.com/google/uuid"
 )
 
-type EjectedMass struct {
+type Eject struct {
 	ID uuid.UUID
 
 	Position Vec2
@@ -12,4 +14,8 @@ type EjectedMass struct {
 
 	Mass  float64
 	Color [3]uint8
+}
+
+func (e *Eject) Radius() float64 {
+	return RadiusScale * math.Sqrt(e.Mass)
 }

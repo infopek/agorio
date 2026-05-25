@@ -35,6 +35,15 @@ export function render(snapshot, camera, canvas) {
         drawPellet(ctx, screenCoords.x, screenCoords.y, screenRadius, pellet.color);
     }
 
+    // Eject
+    for (let i = 0; i < snapshot.ejects.length; i++) {
+        const eject = snapshot.ejects[i];
+        const screenCoords = camera.worldToScreen(new Vec2(eject.x, eject.y), canvas);
+        const screenRadius = camera.worldToScreenRadius(eject.radius);
+
+        drawEject(ctx, screenCoords.x, screenCoords.y, screenRadius, eject.color);
+    }
+
     // Viruses
     for (let i = 0; i < snapshot.viruses.length; i++) {
         const virus = snapshot.viruses[i];
@@ -181,15 +190,21 @@ function drawVirus(ctx, x, y, r) {
  * @param {string} color
  */
 function drawCell(ctx, x, y, r, color) {
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, 2 * Math.PI);
-        ctx.fillStyle = color;
-        ctx.fill();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = darken(color, 0.3);
-        ctx.stroke();
-    });
+    drawWobblyCircle(ctx, x, y, r, color, darken(color, 0.3), performance.now() / 1000.0)
+}
+
+/** drawEject
+ *
+ * Draws an ejected mass in the world
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x
+ * @param {number} y
+ * @param {number} r
+ * @param {string} color
+ */
+function drawEject(ctx, x, y, r, color) {
+    drawWobblyCircle(ctx, x, y, r, color, darken(color, 0.3), performance.now() / 1000.0)
 }
 
 
@@ -293,5 +308,43 @@ function drawOutlinedText(ctx, text, x, y, font) {
         ctx.strokeText(text, x, y);
         ctx.fillStyle = 'white';
         ctx.fillText(text, x, y);
+    });
+}
+
+/** drawWobblyCircle
+ *
+ * Draws a very cute circle with outline that wobbles (some math magic animation)
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x
+ * @param {number} y
+ * @param {number} r
+ * @param {string} color
+ * @param {string} outlineColor
+ * @param {number} time
+ */
+function drawWobblyCircle(ctx, x, y, r, color, outlineColor, time) {
+    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+        const points = 60;
+        ctx.beginPath();
+        for (let i = 0; i <= points; i++) {
+            const angle = (i / points) * Math.PI * 2.0;
+            const wobble = Math.sin(angle * 13.0 + time * 6.0) * r * 0.002
+                + Math.sin(angle * 13.0 + time * 5.0) * r * 0.002;
+            const px = x + Math.cos(angle) * (r + wobble);
+            const py = y + Math.sin(angle) * (r + wobble);
+            if (i === 0) {
+                ctx.moveTo(px, py);
+            } else {
+                ctx.lineTo(px, py);
+            }
+
+        }
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 3;
+        ctx.stroke();
     });
 }

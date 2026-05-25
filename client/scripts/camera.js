@@ -30,13 +30,13 @@ export class Camera {
             sumMass += myCells[i].mass;
         }
 
-        const baseZoom = canvas.height / (200.0 + Math.sqrt(sumMass) * 33.0);
-        //console.log('mass: ', sumMass);
-        //console.log('baseZoom: ', baseZoom);
+        const targetZoom = canvas.height / (600.0 + Math.sqrt(sumMass) * 20.0) * this.zoomOverride;
+        const targetX = sumX / sumMass;
+        const targetY = sumY / sumMass;
 
-        this.position.x = sumX / sumMass;
-        this.position.y = sumY / sumMass;
-        this.zoom = baseZoom * this.zoomOverride;
+        this.position.x += (targetX - this.position.x) * 0.1;
+        this.position.y += (targetY - this.position.y) * 0.1;
+        this.zoom += (targetZoom - this.zoom) * 0.05;
     }
 
     /**

@@ -35,6 +35,7 @@ type TickSnapshot struct {
 	Me      uuid.UUID // client player id
 	Cells   []CellView
 	Pellets []Pellet
+	Ejects  []Eject
 	Viruses []Virus
 	Tick    uint64
 	Score   uint32

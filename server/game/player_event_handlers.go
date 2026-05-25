@@ -2,6 +2,7 @@ package game
 
 import (
 	"log"
+	"math"
 	"sort"
 	"strings"
 
@@ -42,7 +43,7 @@ DrainLoop:
 		case PlayerSplitEvent:
 			w.handlePlayerSplit(m.PlayerID)
 		case PlayerFeedEvent:
-			w.handlePlayerMassEject(m.PlayerID)
+			w.handlePlayerEject(m.PlayerID)
 		default:
 			return // shouldn't happen
 		}
@@ -86,7 +87,6 @@ func (w *World) handlePlayerDisconnect(playerID uuid.UUID) {
 func (w *World) handlePlayerConnect(playerID uuid.UUID, name string, outputChan chan<- ServerEvent) {
 	cellID := uuid.New()
 	name = sanitizeName(name)
-	log.Printf("%v\n", name)
 
 	cell := Cell{
 		ID:      cellID,
@@ -153,7 +153,7 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 
 			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius())),
 			Direction: cell.Direction,
-			Momentum:  cell.Direction.Scale(SplitSpeed),
+			Momentum:  cell.Direction.Scale(SplitMomentumFactor + math.Sqrt(cell.Radius()) * SplitMomentumRadiusFactor),
 
 			MergeTimer: MergeTimerStartSeconds,
 
@@ -166,11 +166,11 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 	}
 }
 
-/** handlePlayerMassEject
+/** handlePlayerEject
  *
  *
  */
-func (w *World) handlePlayerMassEject(playerID uuid.UUID) {
+func (w *World) handlePlayerEject(playerID uuid.UUID) {
 	p, ok := w.Players[playerID]
 	if !ok {
 		return // player not in pool
@@ -178,12 +178,23 @@ func (w *World) handlePlayerMassEject(playerID uuid.UUID) {
 
 	for _, cellID := range p.CellIDs {
 		cell, ok := w.Cells[cellID]
-		if !ok || cell.Mass < FeedMinMass {
+		if !ok || cell.Mass < EjectMinMass {
 			continue // cell doesn't exist or is not big enough
 		}
 
 		// Eject mass
+		cell.Mass -= EjectAmount * EjectPenalty
+		newEject := Eject{
+			ID:      uuid.New(),
 
+			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius())),
+			Momentum:  cell.Direction.Scale(EjectMomentum),
+
+			Mass:  EjectAmount,
+			Color: cell.Color,
+		}
+
+		w.Ejects[newEject.ID] = &newEject
 	}
 }
 
@@ -201,7 +212,6 @@ func sanitizeName(name string) string {
 		return r
 	}, name)
 	if len(name) == 0 {
-		log.Printf("sdf")
 		return DefaultNames[RandIntRange(0, int64(len(DefaultNames)))]
 	}
 	if int64(len(name)) > MaxNameLength {

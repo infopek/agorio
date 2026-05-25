@@ -21,5 +21,5 @@ type Cell struct {
 }
 
 func (c *Cell) Radius() float64 {
-	return RadiusScale * math.Sqrt(float64(c.Mass))
+	return RadiusScale * math.Sqrt(c.Mass)
 }

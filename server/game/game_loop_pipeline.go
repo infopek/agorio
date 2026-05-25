@@ -7,13 +7,15 @@ import (
 	"github.com/google/uuid"
 )
 
-/** World.moveCells
+/** World.applyPhysics
  *
  * Loops through all the players, their cells, and applies
  *  potential split momentum, velocity physics
  *
+ * Applies momentum to all ejected mass
+ *
  */
-func (w *World) moveCells() {
+func (w *World) applyPhysics() {
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
 			cell, ok := w.Cells[id]
@@ -49,6 +51,18 @@ func (w *World) moveCells() {
 					w.calculateSpeed(cell.Mass) * speedFactor, // velocity in the direction of cell
 				),
 			)
+		}
+	}
+
+	for _, e := range w.Ejects {
+		if e.Momentum.MagnitudeSq() <= 0.0 {
+			continue // stationary mass
+		}
+
+		e.Position = e.Position.Add(e.Momentum)
+		e.Momentum = e.Momentum.Scale(EjectMomentumDecay)
+		if e.Momentum.MagnitudeSq() < 0.01 {
+			e.Momentum = Vec2{} // zero it
 		}
 	}
 }
@@ -245,6 +259,31 @@ func (w *World) eatPellets() {
 	}
 }
 
+/** World.eatEjects
+ *
+ * Loops through all the players, their cells, and checks
+ *  if they eat any ejected mass in the world
+ *
+ */
+func (w *World) eatEjects() {
+	for _, p := range w.Players {
+		for _, id := range p.CellIDs {
+			cell, ok := w.Cells[id]
+			if !ok {
+				continue // cell doesn't exist
+			}
+
+			for _, eject := range w.Ejects {
+				if cell.Position.DistanceTo(eject.Position) < cell.Radius() {
+					// Eat the eject
+					cell.Mass += eject.Mass
+					delete(w.Ejects, eject.ID)
+				}
+			}
+		}
+	}
+}
+
 /** World.eatPlayers
  *
  * Loops through all the players, their cells, and checks
@@ -407,6 +446,7 @@ func (w *World) removeCell(cellID uuid.UUID) {
 func (w *World) broadcastState() {
 	cells := make([]CellView, 0, len(w.Cells))
 	pellets := make([]Pellet, 0, len(w.Pellets))
+	ejects := make([]Eject, 0, len(w.Ejects))
 	viruses := make([]Virus, 0, len(w.Viruses))
 
 	for _, c := range w.Cells {
@@ -426,6 +466,9 @@ func (w *World) broadcastState() {
 	for _, p := range w.Pellets {
 		pellets = append(pellets, *p)
 	}
+	for _, e := range w.Ejects {
+		ejects = append(ejects, *e)
+	}
 	for _, v := range w.Viruses {
 		viruses = append(viruses, *v)
 	}
@@ -435,6 +478,7 @@ func (w *World) broadcastState() {
 			Me:      p.ID,
 			Cells:   cells,
 			Pellets: pellets,
+			Ejects:  ejects,
 			Viruses: viruses,
 			Score:   p.Score,
 			Tick:    w.tick,

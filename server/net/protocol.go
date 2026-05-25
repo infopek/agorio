@@ -30,6 +30,17 @@ type PelletDTO struct {
 	Color  string  `json:"color"`
 }
 
+type EjectDTO struct {
+	ID string `json:"id"`
+
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+
+	Radius float64 `json:"radius"`
+	Mass   int64   `json:"mass"`
+	Color  string  `json:"color"`
+}
+
 type VirusDTO struct {
 	Position game.Vec2 `json:"position"`
 
@@ -42,6 +53,7 @@ type TickSnapshotDTO struct {
 	Type    string      `json:"t"`
 	Cells   []CellDTO   `json:"cells"`
 	Pellets []PelletDTO `json:"pellets"`
+	Ejects  []EjectDTO  `json:"ejects"`
 	Viruses []VirusDTO  `json:"viruses"`
 	Me      string      `json:"me"`
 	Tick    uint64      `json:"tick"`
@@ -57,6 +69,7 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 		Type:    "snapshot",
 		Cells:   make([]CellDTO, len(snapshot.Cells)),
 		Pellets: make([]PelletDTO, len(snapshot.Pellets)),
+		Ejects:  make([]EjectDTO, len(snapshot.Ejects)),
 		Viruses: make([]VirusDTO, len(snapshot.Viruses)),
 		Me:      snapshot.Me.String(),
 		Tick:    snapshot.Tick,
@@ -65,8 +78,8 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 
 	for i, c := range snapshot.Cells {
 		snapshotDTO.Cells[i] = CellDTO{
-			ID:      c.ID.String(),
-			OwnerID: c.OwnerID.String(),
+			ID:        c.ID.String(),
+			OwnerID:   c.OwnerID.String(),
 			OwnerName: c.Name,
 
 			X: c.X,
@@ -86,6 +99,19 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			Radius: p.Radius(),
 			Mass:   int64(p.Mass),
 			Color:  colorToHex(p.Color),
+		}
+	}
+
+	for i, e := range snapshot.Ejects {
+		snapshotDTO.Ejects[i] = EjectDTO{
+			ID: e.ID.String(),
+
+			X: e.Position.X,
+			Y: e.Position.Y,
+
+			Radius: e.Radius(),
+			Mass:   int64(e.Mass),
+			Color:  colorToHex(e.Color),
 		}
 	}
 

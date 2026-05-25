@@ -16,7 +16,7 @@ import (
 type World struct {
 	Cells   map[uuid.UUID]*Cell
 	Pellets map[uuid.UUID]*Pellet
-	Ejects  map[uuid.UUID]*EjectedMass
+	Ejects  map[uuid.UUID]*Eject
 	Viruses map[uuid.UUID]*Virus
 	Players map[uuid.UUID]*Player
 
@@ -29,6 +29,7 @@ func NewWorld() *World {
 	return &World{
 		Cells:     make(map[uuid.UUID]*Cell),
 		Pellets:   make(map[uuid.UUID]*Pellet),
+		Ejects:    make(map[uuid.UUID]*Eject),
 		Viruses:   make(map[uuid.UUID]*Virus),
 		Players:   make(map[uuid.UUID]*Player),
 		InputChan: make(chan PlayerEvent, 256),
@@ -49,7 +50,7 @@ func (w *World) Tick() {
 
 		w.processInputs()
 
-		w.moveCells()
+		w.applyPhysics()
 		w.decayMass()
 		w.resolveCollisions()
 		w.clampToWorldBounds()
@@ -58,6 +59,7 @@ func (w *World) Tick() {
 		w.recombineCells()
 
 		w.eatPellets()
+		w.eatEjects()
 		w.eatPlayers()
 		w.eatVirus()
 
