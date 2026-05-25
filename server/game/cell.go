@@ -14,7 +14,9 @@ type Cell struct {
 	Direction Vec2 // actual direction
 	Momentum  Vec2 // a velocity vector
 
-	Mass  int64
+	MergeTimer float64 // time until merge is possible
+
+	Mass  float64
 	Color [3]uint8
 }
 

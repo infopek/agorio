@@ -32,7 +32,7 @@ export function render(snapshot, camera, canvas) {
         const screenCoords = camera.worldToScreen(new Vec2(pellet.x, pellet.y), canvas);
         const screenRadius = camera.worldToScreenRadius(pellet.radius);
 
-        drawPellet(ctx, screenCoords.x, screenCoords.y, screenRadius);
+        drawPellet(ctx, screenCoords.x, screenCoords.y, screenRadius, pellet.color);
     }
 
     // Viruses
@@ -49,9 +49,12 @@ export function render(snapshot, camera, canvas) {
         const cell = snapshot.cells[i];
         const screenCoords = camera.worldToScreen(new Vec2(cell.x, cell.y), canvas);
         const screenRadius = camera.worldToScreenRadius(cell.radius);
+        const offset = screenRadius * 0.35;
 
-        drawCell(ctx, screenCoords.x, screenCoords.y, screenRadius);
-        displayMass(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.mass);
+        drawCell(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.color);
+
+        displayName(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.owner_name);
+        displayMass(ctx, screenCoords.x, screenCoords.y + offset, screenRadius, cell.mass);
     }
 
     displayWorldPosition(ctx, camera);
@@ -139,13 +142,14 @@ function drawGrid(ctx, camera, canvas) {
  * @param {number} x
  * @param {number} y
  * @param {number} r
+ * @param {string} color
  */
-function drawPellet(ctx, x, y, r) {
+function drawPellet(ctx, x, y, r, color) {
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
         ctx.beginPath();
-        ctx.strokeStyle = '#666666';
         ctx.arc(x, y, r, 0, 2 * Math.PI);
-        ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.fill();
     });
 }
 
@@ -174,11 +178,16 @@ function drawVirus(ctx, x, y, r) {
  * @param {number} x
  * @param {number} y
  * @param {number} r
+ * @param {string} color
  */
-function drawCell(ctx, x, y, r) {
+function drawCell(ctx, x, y, r, color) {
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
         ctx.beginPath();
         ctx.arc(x, y, r, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = darken(color, 0.3);
         ctx.stroke();
     });
 }
@@ -202,24 +211,36 @@ function displayWorldPosition(ctx, camera) {
     });
 }
 
-/** displayMass
+/** displayName
  *
- * Displays the mass of the cell in the middle of it
+ * Displays the mass of the cell
  *
  * @param {CanvasRenderingContext2D} ctx
- * @param {number} screenX
- * @param {number} screenY
- * @param {number} screenRadius
+ * @param {number} x
+ * @param {number} y
+ * @param {number} r
+ * @param {string} name
+ */
+function displayName(ctx, x, y, r, name) {
+    const baseSize = Math.max(14, r * 0.45);
+    const scale = Math.min(1.0, 7.0 / name.length);
+    const size = baseSize * scale;
+    drawOutlinedText(ctx, name, x, y, `bold ${size}px sans-serif`);
+}
+
+/** displayMass
+ *
+ * Displays the mass of the cell
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x
+ * @param {number} y
+ * @param {number} r
  * @param {number} mass
  */
-function displayMass(ctx, screenX, screenY, screenRadius, mass) {
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
-        ctx.fillStyle = 'black';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = `${Math.max(12, screenRadius * 0.4)}px sans-serif`;
-        ctx.fillText(`${Math.round(mass)}`, screenX, screenY);
-    });
+function displayMass(ctx, x, y, r, mass) {
+    const size = Math.max(8, r * 0.2);
+    drawOutlinedText(ctx, String(Math.round(mass)), x, y, `${size}px sans-serif`);
 }
 
 /** === UTILS === **/
@@ -235,4 +256,42 @@ function draw(ctx, fn) {
     ctx.save();
     fn(ctx);
     ctx.restore();
+}
+
+/**
+ * darken
+ *
+ * Returns a slightly darker color of the one given
+ *
+ * @param {string} hex
+ * @param {number} amount
+ */
+function darken(hex, amount) {
+    const r = Math.max(0, parseInt(hex.slice(1, 3), 16) * (1 - amount));
+    const g = Math.max(0, parseInt(hex.slice(3, 5), 16) * (1 - amount));
+    const b = Math.max(0, parseInt(hex.slice(5, 7), 16) * (1 - amount));
+    return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+}
+
+/** drawOutlinedText
+ *
+ * Draws the text in white with a black outline to the specified position
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {number} x
+ * @param {number} y
+ * @param {string} font
+ */
+function drawOutlinedText(ctx, text, x, y, font) {
+    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+        ctx.font = font;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'black';
+        ctx.strokeText(text, x, y);
+        ctx.fillStyle = 'white';
+        ctx.fillText(text, x, y);
+    });
 }

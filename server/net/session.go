@@ -12,16 +12,16 @@ import (
 type Session struct {
 	playerID   uuid.UUID
 	conn       *websocket.Conn
-	inputChan  chan<- game.PlayerMessage
-	outputChan chan game.ServerMessage
+	inputChan  chan<- game.PlayerEvent
+	outputChan chan game.ServerEvent
 }
 
-func NewSession(conn *websocket.Conn, inputChan chan<- game.PlayerMessage) *Session {
+func NewSession(conn *websocket.Conn, inputChan chan<- game.PlayerEvent) *Session {
 	return &Session{
 		playerID:   uuid.New(),
 		conn:       conn,
 		inputChan:  inputChan,
-		outputChan: make(chan game.ServerMessage),
+		outputChan: make(chan game.ServerEvent),
 	}
 }
 
@@ -34,7 +34,7 @@ func NewSession(conn *websocket.Conn, inputChan chan<- game.PlayerMessage) *Sess
 func (s *Session) readLoop() {
 	defer s.conn.Close()
 	defer func() {
-		s.inputChan <- game.DisconnectMessage{
+		s.inputChan <- game.PlayerDisconnectEvent{
 			PlayerID: s.playerID,
 		}
 	}()
@@ -53,17 +53,17 @@ func (s *Session) readLoop() {
 		}
 
 		switch m := playerMsg.(type) {
-		case game.JoinMessage:
+		case game.PlayerJoinEvent:
 			m.PlayerID = s.playerID
 			m.OutputChan = s.outputChan
 			s.inputChan <- m
-		case game.MoveMessage:
+		case game.PlayerMoveEvent:
 			m.PlayerID = s.playerID
 			s.inputChan <- m
-		case game.SplitMessage:
+		case game.PlayerSplitEvent:
 			m.PlayerID = s.playerID
 			s.inputChan <- m
-		case game.FeedMessage:
+		case game.PlayerFeedEvent:
 			m.PlayerID = s.playerID
 			s.inputChan <- m
 		}

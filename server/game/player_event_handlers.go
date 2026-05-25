@@ -2,16 +2,19 @@ package game
 
 import (
 	"log"
+	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 )
 
 /** processInputs
+ *
  * First, it consumes the move messages, so that all the
  *  actions are working with up-to-date target vectors
  */
 func (w *World) processInputs() {
-	var actions []PlayerMessage
+	var actions []PlayerEvent
 
 	// Drain channel, why tf do I need labels
 DrainLoop:
@@ -19,11 +22,11 @@ DrainLoop:
 		select {
 		case msg := <-w.InputChan:
 			switch m := msg.(type) {
-			case JoinMessage:
-				w.handlePlayerAdd(m.PlayerID, m.Name, m.OutputChan)
-			case DisconnectMessage:
+			case PlayerJoinEvent:
+				w.handlePlayerConnect(m.PlayerID, m.Name, m.OutputChan)
+			case PlayerDisconnectEvent:
 				w.handlePlayerDisconnect(m.PlayerID)
-			case MoveMessage:
+			case PlayerMoveEvent:
 				w.handlePlayerMove(m.PlayerID, m.Target)
 			default:
 				actions = append(actions, msg)
@@ -36,9 +39,9 @@ DrainLoop:
 	// Execute actions
 	for _, msg := range actions {
 		switch m := msg.(type) {
-		case SplitMessage:
+		case PlayerSplitEvent:
 			w.handlePlayerSplit(m.PlayerID)
-		case FeedMessage:
+		case PlayerFeedEvent:
 			w.handlePlayerMassEject(m.PlayerID)
 		default:
 			return // shouldn't happen
@@ -46,6 +49,10 @@ DrainLoop:
 	}
 }
 
+/** handlePlayerMove
+ *
+ * Sets the target of the player to the new one
+ */
 func (w *World) handlePlayerMove(playerID uuid.UUID, newTarget Vec2) {
 	p, ok := w.Players[playerID]
 	if !ok {
@@ -55,27 +62,41 @@ func (w *World) handlePlayerMove(playerID uuid.UUID, newTarget Vec2) {
 	p.Target = newTarget
 }
 
-func (w *World) handlePlayerDisconnect(id uuid.UUID) {
-	p, ok := w.Players[id]
+/** handlePlayerDisconnect
+ *
+ * Removes the player from the world, and closes their output channel
+ */
+func (w *World) handlePlayerDisconnect(playerID uuid.UUID) {
+	p, ok := w.Players[playerID]
 	if !ok {
 		return // already gone
 	}
 
-	w.handlePlayerRemove(p.ID)
+	w.removePlayer(p.ID)
 	close(p.OutputChan)
 
-	log.Printf("player %v disconnected\n", id)
+	log.Printf("player %v disconnected\n", playerID)
 }
 
-func (w *World) handlePlayerAdd(playerID uuid.UUID, name string, outputChan chan<- ServerMessage) {
+/** handlePlayerConnect
+ *
+ * Creates a new instance for the client with the given name
+ *  and assigns the session's id to it, also creates a starter cell
+ */
+func (w *World) handlePlayerConnect(playerID uuid.UUID, name string, outputChan chan<- ServerEvent) {
 	cellID := uuid.New()
+	name = sanitizeName(name)
+	log.Printf("%v\n", name)
 
 	cell := Cell{
 		ID:      cellID,
 		OwnerID: playerID,
 
-		Position: w.findStartPosition(),
-		Momentum: Vec2{},
+		Position:  w.findStartPosition(),
+		Direction: Vec2{},
+		Momentum:  Vec2{},
+
+		MergeTimer: MergeTimerStartSeconds,
 
 		Mass:  StartMass,
 		Color: w.findStartColor(),
@@ -96,32 +117,28 @@ func (w *World) handlePlayerAdd(playerID uuid.UUID, name string, outputChan chan
 	log.Printf("player %v added with starter cell %v\n", player.ID, cell.ID)
 }
 
-func (w *World) handlePlayerRemove(playerID uuid.UUID) {
-	p, ok := w.Players[playerID]
-	if !ok {
-		return // player already removed
-	}
-
-	// Remove player's remaining cells
-	for _, cellID := range p.CellIDs {
-		delete(w.Cells, cellID)
-	}
-
-	// Notify player of his death
-	p.OutputChan <- DeathEvent{}
-
-	delete(w.Players, playerID)
-
-	log.Printf("player %v removed\n", playerID)
-}
-
+/** handlePlayerSplit
+ *
+ * Splits the player if possible, the cells with the greater mass are prioritized
+ *  when approaching the max cell limit
+ */
 func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 	p, ok := w.Players[playerID]
 	if !ok {
 		return // player not in pool
 	}
 
-	for _, cellID := range p.CellIDs {
+	cellIDs := make([]uuid.UUID, len(p.CellIDs))
+	copy(cellIDs, p.CellIDs)
+	sort.Slice(cellIDs, func(i, j int) bool {
+		return w.Cells[cellIDs[i]].Mass > w.Cells[cellIDs[j]].Mass // cell with greater mass gets split first
+	})
+
+	for _, cellID := range cellIDs {
+		if int64(len(p.CellIDs)) >= SplitMaxCells {
+			break // too many cells
+		}
+
 		cell, ok := w.Cells[cellID]
 		if !ok || cell.Mass < SplitMinMass {
 			continue // cell doesn't exist or is not big enough
@@ -129,13 +146,16 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 
 		// Split
 		cell.Mass /= 2
+		cell.MergeTimer += MergeCooldownSeconds
 		newCell := Cell{
 			ID:      uuid.New(),
 			OwnerID: playerID,
 
-			Position:  cell.Position,
+			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius())),
 			Direction: cell.Direction,
 			Momentum:  cell.Direction.Scale(SplitSpeed),
+
+			MergeTimer: MergeTimerStartSeconds,
 
 			Mass:  cell.Mass,
 			Color: cell.Color,
@@ -146,6 +166,47 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 	}
 }
 
-func (w *World) handlePlayerMassEject(id uuid.UUID) {
-	// TODO: implement
+/** handlePlayerMassEject
+ *
+ *
+ */
+func (w *World) handlePlayerMassEject(playerID uuid.UUID) {
+	p, ok := w.Players[playerID]
+	if !ok {
+		return // player not in pool
+	}
+
+	for _, cellID := range p.CellIDs {
+		cell, ok := w.Cells[cellID]
+		if !ok || cell.Mass < FeedMinMass {
+			continue // cell doesn't exist or is not big enough
+		}
+
+		// Eject mass
+
+	}
+}
+
+/** sanitizeName
+ *
+ * Cleans the name given by a user, uses a random haha
+ *  name if empty
+ */
+func sanitizeName(name string) string {
+	name = strings.TrimSpace(name)
+	name = strings.Map(func(r rune) rune {
+		if r < 32 || r == 127 {
+			return -1 // strip control chars
+		}
+		return r
+	}, name)
+	if len(name) == 0 {
+		log.Printf("sdf")
+		return DefaultNames[RandIntRange(0, int64(len(DefaultNames)))]
+	}
+	if int64(len(name)) > MaxNameLength {
+		name = name[:MaxNameLength]
+	}
+
+	return name
 }

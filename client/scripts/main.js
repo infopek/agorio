@@ -29,6 +29,7 @@ function gameLoop() {
     if (snapshot) {
         sendMouseUpdate(canvas, camera);
 
+        snapshot.cells.sort((a, b) => a.radius - b.radius); // consistent rendering, larger is in foreground
         camera.update(snapshot, canvas);
 
         render(snapshot, camera, canvas);

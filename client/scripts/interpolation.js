@@ -2,7 +2,7 @@
 let prev = null;
 
 /**
- * @typedef {{id: string, owner_id: string, x: number, y: number, radius: number, mass: number, color: string}} CellData
+ * @typedef {{id: string, owner_id: string, owner_name: string, x: number, y: number, radius: number, mass: number, color: string}} CellData
  * @typedef {{x: number, y: number, radius: number, mass: number, color: string}} PelletData
  * @typedef {{x: number, y: number, radius: number, mass: number, color: string}} VirusData
  * @typedef {{cells: CellData[], pellets: PelletData[], viruses: VirusData[], me: string, score: number, tick: number}} Snapshot

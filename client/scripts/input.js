@@ -69,7 +69,7 @@ export function initInput(canvas, camera) {
 
     playBtn.addEventListener('click', () => {
         // @ts-ignore
-        const name = nameInput.value.trim() || 'Player';
+        const name = nameInput.value.trim();
         sendJoin(name);
         toggleMenu(false);    // hide menu
     });

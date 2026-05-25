@@ -11,7 +11,7 @@ type Pellet struct {
 
 	Position Vec2
 
-	Mass  int64
+	Mass  float64
 	Color [3]uint8
 }
 

@@ -9,8 +9,9 @@ import (
 )
 
 type CellDTO struct {
-	ID      string `json:"id"`
-	OwnerID string `json:"owner_id"`
+	ID        string `json:"id"`
+	OwnerID   string `json:"owner_id"`
+	OwnerName string `json:"owner_name,omitempty"`
 
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
@@ -66,12 +67,13 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 		snapshotDTO.Cells[i] = CellDTO{
 			ID:      c.ID.String(),
 			OwnerID: c.OwnerID.String(),
+			OwnerName: c.Name,
 
-			X: c.Position.X,
-			Y: c.Position.Y,
+			X: c.X,
+			Y: c.Y,
 
-			Radius: c.Radius(),
-			Mass:   c.Mass,
+			Radius: c.Radius,
+			Mass:   int64(c.Mass),
 			Color:  colorToHex(c.Color),
 		}
 	}
@@ -82,7 +84,7 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			Y: p.Position.Y,
 
 			Radius: p.Radius(),
-			Mass:   p.Mass,
+			Mass:   int64(p.Mass),
 			Color:  colorToHex(p.Color),
 		}
 	}
@@ -92,7 +94,7 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			Position: v.Position,
 
 			Radius: v.Radius(),
-			Mass:   v.Mass,
+			Mass:   int64(v.Mass),
 			Color:  colorToHex(v.Color),
 		}
 	}
@@ -106,7 +108,7 @@ func deathEventToDeathEventDTO(_ game.DeathEvent) DeathEventDTO {
 	}
 }
 
-func toJSON(msg game.ServerMessage) ([]byte, error) {
+func toJSON(msg game.ServerEvent) ([]byte, error) {
 	switch m := msg.(type) {
 	case game.TickSnapshot:
 		dto := tickSnapshotToTickSnapshotDTO(m)
@@ -127,7 +129,7 @@ func toJSON(msg game.ServerMessage) ([]byte, error) {
 	}
 }
 
-func parsePlayerMessage(msg []byte) (game.PlayerMessage, error) {
+func parsePlayerMessage(msg []byte) (game.PlayerEvent, error) {
 	var raw map[string]any
 	err := json.Unmarshal(msg, &raw)
 	if err != nil {
@@ -136,20 +138,20 @@ func parsePlayerMessage(msg []byte) (game.PlayerMessage, error) {
 
 	switch raw["t"] {
 	case "join":
-		return game.JoinMessage{
+		return game.PlayerJoinEvent{
 			Name: raw["name"].(string),
 		}, nil
 	case "move":
-		return game.MoveMessage{
+		return game.PlayerMoveEvent{
 			Target: game.Vec2{
 				X: raw["x"].(float64),
 				Y: raw["y"].(float64),
 			},
 		}, nil
 	case "split":
-		return game.SplitMessage{}, nil
+		return game.PlayerSplitEvent{}, nil
 	case "feed":
-		return game.FeedMessage{}, nil
+		return game.PlayerFeedEvent{}, nil
 	default:
 		return nil, errors.New("unknown input message")
 	}
