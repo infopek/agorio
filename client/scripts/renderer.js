@@ -3,8 +3,10 @@ import { Camera } from './camera.js';
 
 const GRID_SIZE = 50;
 
-const WORLD_WIDTH = 5000;
-const WORLD_HEIGHT = 5000;
+const WORLD_WIDTH = 10000;
+const WORLD_HEIGHT = 10000;
+
+const VIRUS_FEED_TO_SHOOT = 7;
 
 /** render
  *
@@ -50,7 +52,13 @@ export function render(snapshot, camera, canvas) {
         const screenCoords = camera.worldToScreen(new Vec2(virus.x, virus.y), canvas);
         const screenRadius = camera.worldToScreenRadius(virus.radius);
 
-        drawVirus(ctx, screenCoords.x, screenCoords.y, screenRadius);
+        drawVirus(ctx, screenCoords.x, screenCoords.y, screenRadius, virus.mass, virus.color,
+            darken(virus.color, 0.3), performance.now() / 1000.0);
+
+        const remaining = VIRUS_FEED_TO_SHOOT - virus.fed_count;
+        if (remaining < VIRUS_FEED_TO_SHOOT) {
+            drawOutlinedText(ctx, String(remaining), screenCoords.x, screenCoords.y, `bold ${screenRadius * 0.6}px sans-serif`, 2);
+        }
     }
 
     // Players
@@ -62,7 +70,9 @@ export function render(snapshot, camera, canvas) {
 
         drawCell(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.color);
 
-        displayName(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.owner_name);
+        if (cell.mass > 30.0) {
+            displayName(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.owner_name);
+        }
         displayMass(ctx, screenCoords.x, screenCoords.y + offset, screenRadius, cell.mass);
     }
 
@@ -170,12 +180,44 @@ function drawPellet(ctx, x, y, r, color) {
  * @param {number} x
  * @param {number} y
  * @param {number} r
+ * @param {number} mass
+ * @param {string} color
+ * @param {string} outlineColor
+ * @param {number} time
  */
-function drawVirus(ctx, x, y, r) {
+function drawVirus(ctx, x, y, r, mass, color, outlineColor, time) {
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+        const spikes = 30;
+        const spikeDepth = r * 0.04;
+        const rotationDirection = 1; // clockwise
+        const rotationSpeed = 0.3;
+        const massRotationFactor = 0.7;
+
+        const rotation = time * rotationSpeed * rotationDirection + mass * massRotationFactor;
+
         ctx.beginPath();
-        ctx.arc(x, y, r, 0, 2 * Math.PI);
+        for (let i = 0; i <= spikes * 2; i++) {
+            const angle = (i / (spikes * 2)) * Math.PI * 2 + rotation;
+            const isSpike = i % 2 == 0;
+            const dist = isSpike ? r + spikeDepth : r - spikeDepth;
+            const px = x + Math.cos(angle) * dist;
+            const py = y + Math.sin(angle) * dist;
+
+            if (i === 0) {
+                ctx.moveTo(px, py);
+            } else {
+                ctx.lineTo(px, py);
+            }
+        }
+        ctx.closePath();
+
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 3;
         ctx.stroke();
+
     });
 }
 
@@ -228,7 +270,7 @@ function displayWorldPosition(ctx, camera) {
 
 /** displayName
  *
- * Displays the mass of the cell
+ * Displays the name of the player on the cell
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} x
@@ -237,10 +279,10 @@ function displayWorldPosition(ctx, camera) {
  * @param {string} name
  */
 function displayName(ctx, x, y, r, name) {
-    const baseSize = Math.max(14, r * 0.45);
+    const baseSize = Math.max(13, r * 0.38);
     const scale = Math.min(1.0, 7.0 / name.length);
     const size = baseSize * scale;
-    drawOutlinedText(ctx, name, x, y, `bold ${size}px sans-serif`);
+    drawOutlinedText(ctx, name, x, y, `bold ${size}px sans-serif`, Math.max(1.0, size * 0.15));
 }
 
 /** displayMass
@@ -255,7 +297,7 @@ function displayName(ctx, x, y, r, name) {
  */
 function displayMass(ctx, x, y, r, mass) {
     const size = Math.max(8, r * 0.2);
-    drawOutlinedText(ctx, String(Math.round(mass)), x, y, `${size}px sans-serif`);
+    drawOutlinedText(ctx, String(Math.round(mass)), x, y, `${size}px sans-serif`, Math.max(1.0, size * 0.15));
 }
 
 /** === UTILS === **/
@@ -297,13 +339,16 @@ function darken(hex, amount) {
  * @param {number} x
  * @param {number} y
  * @param {string} font
+ * @param {number} lineWidth
  */
-function drawOutlinedText(ctx, text, x, y, font) {
+function drawOutlinedText(ctx, text, x, y, font, lineWidth) {
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
         ctx.font = font;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = lineWidth;
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
         ctx.strokeStyle = 'black';
         ctx.strokeText(text, x, y);
         ctx.fillStyle = 'white';
@@ -326,13 +371,15 @@ function drawOutlinedText(ctx, text, x, y, font) {
 function drawWobblyCircle(ctx, x, y, r, color, outlineColor, time) {
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
         const points = 60;
+
         ctx.beginPath();
         for (let i = 0; i <= points; i++) {
             const angle = (i / points) * Math.PI * 2.0;
-            const wobble = Math.sin(angle * 13.0 + time * 6.0) * r * 0.002
-                + Math.sin(angle * 13.0 + time * 5.0) * r * 0.002;
+            const wobble = Math.sin(angle * 13.0 + time * 6.0) * r * 0.0015
+                + Math.cos(angle * 13.0 + time * 5.0) * r * 0.0015;
             const px = x + Math.cos(angle) * (r + wobble);
             const py = y + Math.sin(angle) * (r + wobble);
+
             if (i === 0) {
                 ctx.moveTo(px, py);
             } else {

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"math"
 	"math/rand"
 )
 
@@ -20,4 +21,13 @@ func Clamp(val, lo, hi float64) float64 {
 		return hi
 	}
 	return val
+}
+
+/** Radius
+ *
+ * Universal radius calculation for every physical entity
+ *
+ */
+func Radius(mass float64) float64 {
+	return RadiusScale * math.Sqrt(mass)
 }

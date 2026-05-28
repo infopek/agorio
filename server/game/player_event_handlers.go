@@ -92,14 +92,14 @@ func (w *World) handlePlayerConnect(playerID uuid.UUID, name string, outputChan 
 		ID:      cellID,
 		OwnerID: playerID,
 
-		Position:  w.findStartPosition(),
+		Position:  w.findEmptySpace(),
 		Direction: Vec2{},
 		Momentum:  Vec2{},
 
 		MergeTimer: MergeTimerStartSeconds,
 
-		Mass:  StartMass,
-		Color: w.findStartColor(),
+		Mass:  StartMass * 50.0,
+		Color: w.getRandomColor(),
 	}
 	player := Player{
 		ID:      playerID,

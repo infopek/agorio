@@ -2,7 +2,6 @@ package game
 
 import (
 	_ "log"
-	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,18 +19,33 @@ type World struct {
 	Viruses map[uuid.UUID]*Virus
 	Players map[uuid.UUID]*Player
 
+	cellGrid   *SpatialGrid[*Cell]
+	pelletGrid *SpatialGrid[*Pellet]
+	ejectGrid  *SpatialGrid[*Eject]
+	virusGrid  *SpatialGrid[*Virus]
+
 	tick uint64
 
 	InputChan chan PlayerEvent // shared across all players
 }
 
 func NewWorld() *World {
+	cellGridSize := Radius(ForceSplitMassThreshold) * 2.0
+	pelletGridSize := Radius(MaxPelletMass) * 2.0
+	ejectGridSize := Radius(EjectAmount) * 2.0
+	virusGridSize := Radius(VirusStartMass) * 2.0
 	return &World{
-		Cells:     make(map[uuid.UUID]*Cell),
-		Pellets:   make(map[uuid.UUID]*Pellet),
-		Ejects:    make(map[uuid.UUID]*Eject),
-		Viruses:   make(map[uuid.UUID]*Virus),
-		Players:   make(map[uuid.UUID]*Player),
+		Cells:   make(map[uuid.UUID]*Cell),
+		Pellets: make(map[uuid.UUID]*Pellet),
+		Ejects:  make(map[uuid.UUID]*Eject),
+		Viruses: make(map[uuid.UUID]*Virus),
+		Players: make(map[uuid.UUID]*Player),
+
+		cellGrid:   NewSpatialGrid[*Cell](cellGridSize),
+		pelletGrid: NewSpatialGrid[*Pellet](pelletGridSize),
+		ejectGrid:  NewSpatialGrid[*Eject](ejectGridSize),
+		virusGrid:  NewSpatialGrid[*Virus](virusGridSize),
+
 		InputChan: make(chan PlayerEvent, 256),
 	}
 }
@@ -48,9 +62,12 @@ func (w *World) Tick() {
 	for range ticker.C {
 		w.tick++
 
+		w.rebuildGrids()
+
 		w.processInputs()
 
 		w.applyPhysics()
+		w.feedViruses()
 		w.decayMass()
 		w.resolveCollisions()
 		w.clampToWorldBounds()
@@ -70,57 +87,26 @@ func (w *World) Tick() {
 	}
 }
 
-/** World.findStartPosition
+/** World.findEmptySpace
  *
  * Finds a place for a new player to spawn in
  *
  * TODO: find an empty place in the map
  *
  */
-func (w *World) findStartPosition() Vec2 {
+func (w *World) findEmptySpace() Vec2 {
 	return Vec2{
 		X: RandFloatRange(0.0, WorldWidth),
 		Y: RandFloatRange(0.0, WorldHeight),
 	}
 }
 
-/** World.findStartColor
- *
- * Finds a color for a new player
+/** World.getRandomColor
  *
  * TODO: ideally this would generate as few
  *  color collisions as possible
  *
  */
-func (w *World) findStartColor() [3]uint8 {
-	return getRandomColor()
-}
-
-/** World.calculateSpeed
- *
- * Calculates the speed of the cell given its mass
- *
- * Formula:
- *  sp = base_sp * (sm / m) ^ exp
- *
- * Where
- *  sp:      resulting speed
- *  base_sp: base speed
- *  sm:      starting mass of a new player
- *  m:       current mass of cell
- *  exp:     rate of speed penalty per unit of growth
- *
- */
-func (w *World) calculateSpeed(mass float64) float64 {
-	speed := BaseSpeed * math.Pow(StartMass/mass, SpeedExponent)
-	return math.Max(speed, MinSpeed)
-}
-
-/** getRandomColor
- *
- * Util function for a random color
- *
- */
-func getRandomColor() [3]uint8 {
+func (w *World) getRandomColor() [3]uint8 {
 	return DefaultColors[RandIntRange(0, int64(len(DefaultColors)))]
 }

@@ -1,8 +1,6 @@
 package game
 
 import (
-	"math"
-
 	"github.com/google/uuid"
 )
 
@@ -17,5 +15,5 @@ type Eject struct {
 }
 
 func (e *Eject) Radius() float64 {
-	return RadiusScale * math.Sqrt(e.Mass)
+	return Radius(e.Mass)
 }

@@ -1,8 +1,6 @@
 package game
 
 import (
-	"math"
-
 	"github.com/google/uuid"
 )
 
@@ -16,5 +14,5 @@ type Pellet struct {
 }
 
 func (p *Pellet) Radius() float64 {
-	return RadiusScale * math.Sqrt(float64(p.Mass))
+	return Radius(p.Mass)
 }

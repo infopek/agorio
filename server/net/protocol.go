@@ -42,11 +42,15 @@ type EjectDTO struct {
 }
 
 type VirusDTO struct {
-	Position game.Vec2 `json:"position"`
+	ID string `json:"id"`
 
-	Radius float64 `json:"radius"`
-	Mass   int64   `json:"mass"`
-	Color  string  `json:"color"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+
+	FedCount int64   `json:"fed_count"`
+	Radius   float64 `json:"radius"`
+	Mass     int64   `json:"mass"`
+	Color    string  `json:"color"`
 }
 
 type TickSnapshotDTO struct {
@@ -117,11 +121,15 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 
 	for i, v := range snapshot.Viruses {
 		snapshotDTO.Viruses[i] = VirusDTO{
-			Position: v.Position,
+			ID: v.ID.String(),
 
-			Radius: v.Radius(),
-			Mass:   int64(v.Mass),
-			Color:  colorToHex(v.Color),
+			X: v.Position.X,
+			Y: v.Position.Y,
+
+			FedCount: v.FedCount,
+			Radius:   v.Radius(),
+			Mass:     int64(v.Mass),
+			Color:    colorToHex(v.Color),
 		}
 	}
 

@@ -1,8 +1,8 @@
 import { Vec2 } from './vec2.js';
 import { clamp } from './utils.js';
 
-const MIN_ZOOM_OVERRIDE = 0.6;
-const MAX_ZOOM_OVERRIDE = 1.3;
+const MIN_ZOOM_OVERRIDE = 0.8;
+const MAX_ZOOM_OVERRIDE = 1.2;
 
 export class Camera {
     constructor() {

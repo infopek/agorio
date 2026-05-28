@@ -1,8 +1,6 @@
 package game
 
 import (
-	"math"
-
 	"github.com/google/uuid"
 )
 
@@ -10,11 +8,13 @@ type Virus struct {
 	ID uuid.UUID
 
 	Position Vec2
+	Momentum Vec2 // for shooting virus
 
-	Mass  float64
-	Color [3]uint8
+	Mass     float64
+	FedCount int64
+	Color    [3]uint8
 }
 
 func (v *Virus) Radius() float64 {
-	return RadiusScale * math.Sqrt(float64(v.Mass))
+	return Radius(v.Mass)
 }

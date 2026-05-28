@@ -1,8 +1,6 @@
 package game
 
 import (
-	"math"
-
 	"github.com/google/uuid"
 )
 
@@ -21,5 +19,5 @@ type Cell struct {
 }
 
 func (c *Cell) Radius() float64 {
-	return RadiusScale * math.Sqrt(c.Mass)
+	return Radius(c.Mass)
 }
