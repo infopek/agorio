@@ -64,7 +64,7 @@ const (
 	VirusPopDampenFactor    float64 = 0.8 // Momentum dampener
 
 	VirusFeedToShoot   int64   = 7
-	VirusLaunchSpeed   float64 = 20.0
+	VirusLaunchSpeed   float64 = 30.0
 	VirusMomentumDecay float64 = 0.93
 )
 
