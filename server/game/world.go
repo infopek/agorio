@@ -62,9 +62,9 @@ func (w *World) Tick() {
 	for range ticker.C {
 		w.tick++
 
-		w.rebuildGrids()
-
 		w.processInputs()
+
+		w.rebuildGrids()
 
 		w.applyPhysics()
 		w.feedViruses()

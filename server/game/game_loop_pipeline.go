@@ -311,18 +311,23 @@ func (w *World) recombineCells() {
 					continue // cell doesn't exist or can't merge
 				}
 
+				var larger, smaller *Cell
+				if cellA.Mass >= cellB.Mass {
+					larger = cellA
+					smaller = cellB
+				} else {
+					larger = cellB
+					smaller = cellA
+				}
+
 				dist := cellA.Position.DistanceTo(cellB.Position)
-				if dist < max(cellA.Radius(), cellB.Radius())*MergeMinOverlap {
+				if dist+smaller.Radius()*MergeMinOverlap < larger.Radius() {
 					// Merge
-					if cellA.Mass >= cellB.Mass {
-						cellA.Mass += cellB.Mass
-						cellA.MergeTimer += MergeCooldownSeconds
-						toRemove[idB] = true
-					} else {
-						cellB.Mass += cellA.Mass
-						cellB.MergeTimer += MergeCooldownSeconds
-						toRemove[idA] = true
-						break // cellA is gone, stop
+					larger.Mass += smaller.Mass
+					larger.MergeTimer = MergeCooldownSeconds
+					toRemove[smaller.ID] = true
+					if smaller == cellA {
+						break
 					}
 				}
 			}
@@ -754,46 +759,86 @@ func (w *World) removeCell(cellID uuid.UUID) {
  *
  */
 func (w *World) broadcastState() {
-	cells := make([]CellView, 0, len(w.Cells))
-	pellets := make([]Pellet, 0, len(w.Pellets))
-	ejects := make([]Eject, 0, len(w.Ejects))
-	viruses := make([]Virus, 0, len(w.Viruses))
-
-	for _, c := range w.Cells {
-		cells = append(cells, CellView{
-			ID:      c.ID,
-			OwnerID: c.OwnerID,
-			Name:    w.Players[c.OwnerID].Name,
-
-			X:      c.Position.X,
-			Y:      c.Position.Y,
-			Radius: c.Radius(),
-
-			Mass:  c.Mass,
-			Color: c.Color,
-		})
-	}
-	for _, p := range w.Pellets {
-		pellets = append(pellets, *p)
-	}
-	for _, e := range w.Ejects {
-		ejects = append(ejects, *e)
-	}
-	for _, v := range w.Viruses {
-		viruses = append(viruses, *v)
-	}
-
 	for _, p := range w.Players {
+		center, totalMass := w.playerCenter(p)
+
+		halfW := 1000.0 + math.Sqrt(totalMass)*10.0
+		halfH := 700.0 + math.Sqrt(totalMass)*10.0
+
+		minX, minY := center.X-halfW, center.Y-halfH
+		maxX, maxY := center.X+halfW, center.Y+halfH
+
+		cells := w.cellGrid.GetInRect(minX, minY, maxX, maxY)
+		pellets := w.pelletGrid.GetInRect(minX, minY, maxX, maxY)
+		ejects := w.ejectGrid.GetInRect(minX, minY, maxX, maxY)
+		viruses := w.virusGrid.GetInRect(minX, minY, maxX, maxY)
+
+		cellViews := make([]CellView, 0, len(cells))
+		pelletViews := make([]Pellet, 0, len(pellets))
+		ejectViews := make([]Eject, 0, len(ejects))
+		virusViews := make([]Virus, 0, len(viruses))
+
+		for _, c := range cells {
+			cellViews = append(cellViews, CellView{
+				ID:      c.ID,
+				OwnerID: c.OwnerID,
+				Name:    w.Players[c.OwnerID].Name,
+
+				X:      c.Position.X,
+				Y:      c.Position.Y,
+				Radius: c.Radius(),
+
+				Mass:  c.Mass,
+				Color: c.Color,
+			})
+		}
+		for _, p := range pellets {
+			pelletViews = append(pelletViews, *p)
+		}
+		for _, e := range ejects {
+			ejectViews = append(ejectViews, *e)
+		}
+		for _, v := range viruses {
+			virusViews = append(virusViews, *v)
+		}
+
 		snapshot := TickSnapshot{
 			Me:      p.ID,
-			Cells:   cells,
-			Pellets: pellets,
-			Ejects:  ejects,
-			Viruses: viruses,
+			Cells:   cellViews,
+			Pellets: pelletViews,
+			Ejects:  ejectViews,
+			Viruses: virusViews,
 			Score:   p.Score,
 			Tick:    w.tick,
 		}
 
 		p.OutputChan <- snapshot
 	}
+}
+
+/** World.playerCenter
+ *
+ * Helper method for World.broadcastState
+ *
+ * Finds the weighted center of the player, and return the position
+ *  with the totalMass
+ *
+ */
+func (w *World) playerCenter(p *Player) (Vec2, float64) {
+	if len(p.CellIDs) == 0 {
+		return Vec2{}, 0.0
+	}
+
+	totalMass := 0.0
+	center := Vec2{}
+	for _, id := range p.CellIDs {
+		c := w.Cells[id]
+		center.X += c.Position.X * c.Mass
+		center.Y += c.Position.Y * c.Mass
+		totalMass += c.Mass
+	}
+
+	center.X /= totalMass
+	center.Y /= totalMass
+	return center, totalMass
 }

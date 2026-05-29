@@ -44,13 +44,13 @@ const (
 	EjectPenalty       float64 = 1.30 // the cell loses the amount * penalty on feeding
 
 	MergeTimerStartSeconds float64 = 13.0 // seconds until merge can happen
-	MergeMinOverlap        float64 = 0.85
+	MergeMinOverlap        float64 = 0.4
 	MergeCooldownSeconds   float64 = 1.0 // extra seconds after merging to merge again
 
 	// Pellet
 	MaxPellets        int64   = 800
 	PelletSpawnAmount int64   = 2   // per tick
-	PelletSpawnChance float64 = 0.1 // per tick
+	PelletSpawnChance float64 = 0.9 // per tick
 	MinPelletMass     float64 = 1.0
 	MaxPelletMass     float64 = 2.5
 

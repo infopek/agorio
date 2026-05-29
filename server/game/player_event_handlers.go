@@ -98,7 +98,7 @@ func (w *World) handlePlayerConnect(playerID uuid.UUID, name string, outputChan 
 
 		MergeTimer: MergeTimerStartSeconds,
 
-		Mass:  StartMass * 50.0,
+		Mass:  StartMass * 150.0,
 		Color: w.getRandomColor(),
 	}
 	player := Player{
@@ -153,7 +153,7 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 
 			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius())),
 			Direction: cell.Direction,
-			Momentum:  cell.Direction.Scale(SplitMomentumFactor + math.Sqrt(cell.Radius()) * SplitMomentumRadiusFactor),
+			Momentum:  cell.Direction.Scale(SplitMomentumFactor + math.Sqrt(cell.Radius())*SplitMomentumRadiusFactor),
 
 			MergeTimer: MergeTimerStartSeconds,
 
@@ -185,10 +185,10 @@ func (w *World) handlePlayerEject(playerID uuid.UUID) {
 		// Eject mass
 		cell.Mass -= EjectAmount * EjectPenalty
 		newEject := Eject{
-			ID:      uuid.New(),
+			ID: uuid.New(),
 
-			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius())),
-			Momentum:  cell.Direction.Scale(EjectMomentum),
+			Position: cell.Position.Add(cell.Direction.Scale(cell.Radius())),
+			Momentum: cell.Direction.Scale(EjectMomentum),
 
 			Mass:  EjectAmount,
 			Color: cell.Color,

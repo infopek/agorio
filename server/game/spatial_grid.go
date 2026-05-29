@@ -39,6 +39,22 @@ func (sg *SpatialGrid[T]) GetNeighbors(pos Vec2, radius float64) []T {
 	return result
 }
 
+func (sg *SpatialGrid[T]) GetInRect(minX, minY, maxX, maxY float64) []T {
+	var result []T
+	startX := int(minX / sg.cellSize)
+	startY := int(minY / sg.cellSize)
+	endX := int(maxX / sg.cellSize)
+	endY := int(maxY / sg.cellSize)
+
+	for x := startX; x <= endX; x++ {
+		for y := startY; y <= endY; y++ {
+			result = append(result, sg.cells[[2]int{x, y}]...)
+		}
+	}
+
+	return result
+}
+
 func (sg *SpatialGrid[T]) key(pos Vec2) [2]int {
 	return [2]int{
 		int(pos.X / sg.cellSize),
