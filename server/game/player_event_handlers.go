@@ -88,33 +88,34 @@ func (w *World) handlePlayerConnect(playerID uuid.UUID, name string, outputChan 
 	cellID := uuid.New()
 	name = sanitizeName(name)
 
-	cell := Cell{
+	c := Cell{
 		ID:      cellID,
 		OwnerID: playerID,
 
-		Position:  w.findEmptySpace(),
+		Position:  w.findEmptySpace(Radius(StartMass)),
 		Direction: Vec2{},
 		Momentum:  Vec2{},
 
 		MergeTimer: MergeTimerStartSeconds,
 
-		Mass:  StartMass * 150.0,
+		Mass:  StartMass * 151.0,
 		Color: w.getRandomColor(),
 	}
-	player := Player{
+	p := Player{
 		ID:      playerID,
 		CellIDs: []uuid.UUID{cellID},
 
 		Name:   name,
 		Target: Vec2{},
 
+		IsBot:      false,
 		OutputChan: outputChan,
 	}
 
-	w.Players[playerID] = &player
-	w.Cells[cellID] = &cell
+	w.Players[playerID] = &p
+	w.Cells[cellID] = &c
 
-	log.Printf("player %v added with starter cell %v\n", player.ID, cell.ID)
+	log.Printf("player %v added with starter cell %v\n", p.ID, c.ID)
 }
 
 /** handlePlayerSplit
@@ -145,17 +146,17 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 		}
 
 		// Split
-		cell.Mass /= 2
+		cell.Mass /= 2.0
 		cell.MergeTimer += MergeCooldownSeconds
 		newCell := Cell{
 			ID:      uuid.New(),
 			OwnerID: playerID,
 
-			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius())),
+			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius() / 2.0)),
 			Direction: cell.Direction,
 			Momentum:  cell.Direction.Scale(SplitMomentumFactor + math.Sqrt(cell.Radius())*SplitMomentumRadiusFactor),
 
-			MergeTimer: MergeTimerStartSeconds,
+			MergeTimer: min(MaxMergeTimer, MergeTimerStartSeconds+(cell.Mass*MergeTimerMassFactor)),
 
 			Mass:  cell.Mass,
 			Color: cell.Color,

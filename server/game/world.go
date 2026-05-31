@@ -1,7 +1,6 @@
 package game
 
 import (
-	_ "log"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,12 +16,14 @@ type World struct {
 	Pellets map[uuid.UUID]*Pellet
 	Ejects  map[uuid.UUID]*Eject
 	Viruses map[uuid.UUID]*Virus
-	Players map[uuid.UUID]*Player
 
 	cellGrid   *SpatialGrid[*Cell]
 	pelletGrid *SpatialGrid[*Pellet]
 	ejectGrid  *SpatialGrid[*Eject]
 	virusGrid  *SpatialGrid[*Virus]
+
+	Players map[uuid.UUID]*Player
+	Bots    map[uuid.UUID]*Bot
 
 	tick uint64
 
@@ -30,7 +31,7 @@ type World struct {
 }
 
 func NewWorld() *World {
-	cellGridSize := Radius(ForceSplitMassThreshold) * 2.0
+	cellGridSize := Radius(MaxCellMass) * 2.0
 	pelletGridSize := Radius(MaxPelletMass) * 2.0
 	ejectGridSize := Radius(EjectAmount) * 2.0
 	virusGridSize := Radius(VirusStartMass) * 2.0
@@ -39,12 +40,14 @@ func NewWorld() *World {
 		Pellets: make(map[uuid.UUID]*Pellet),
 		Ejects:  make(map[uuid.UUID]*Eject),
 		Viruses: make(map[uuid.UUID]*Virus),
-		Players: make(map[uuid.UUID]*Player),
 
 		cellGrid:   NewSpatialGrid[*Cell](cellGridSize),
 		pelletGrid: NewSpatialGrid[*Pellet](pelletGridSize),
 		ejectGrid:  NewSpatialGrid[*Eject](ejectGridSize),
 		virusGrid:  NewSpatialGrid[*Virus](virusGridSize),
+
+		Players: make(map[uuid.UUID]*Player),
+		Bots:    make(map[uuid.UUID]*Bot),
 
 		InputChan: make(chan PlayerEvent, 256),
 	}
@@ -62,11 +65,14 @@ func (w *World) Tick() {
 	for range ticker.C {
 		w.tick++
 
+		w.maintainBots()
+		w.updateBots()
+
 		w.processInputs()
 
 		w.rebuildGrids()
 
-		w.applyPhysics()
+		w.moveCells()
 		w.feedViruses()
 		w.decayMass()
 		w.resolveCollisions()
@@ -80,9 +86,12 @@ func (w *World) Tick() {
 		w.eatPlayers()
 		w.eatVirus()
 
+		w.autoSplit()
+
 		w.spawnPellets()
 		w.spawnViruses()
 
+		w.rebuildGrids() // sync updates before sending anything
 		w.broadcastState()
 	}
 }
@@ -94,10 +103,31 @@ func (w *World) Tick() {
  * TODO: find an empty place in the map
  *
  */
-func (w *World) findEmptySpace() Vec2 {
+func (w *World) findEmptySpace(radius float64) Vec2 {
+	for range EmptySpaceMaxAttempts {
+		pos := Vec2{
+			X: RandFloatRange(radius, WorldWidth-radius),
+			Y: RandFloatRange(radius, WorldHeight-radius),
+		}
+
+		neighbors := w.cellGrid.GetNeighbors(pos, radius+EmptySpaceRadiusQuery)
+		occupied := false
+		for _, c := range neighbors {
+			if pos.DistanceTo(c.Position) < c.Radius()+EmptySpaceRadiusLeeway {
+				occupied = true
+				break
+			}
+		}
+
+		if !occupied {
+			return pos
+		}
+	}
+
+	// We couldn't find unoccupied space, return random
 	return Vec2{
-		X: RandFloatRange(0.0, WorldWidth),
-		Y: RandFloatRange(0.0, WorldHeight),
+		X: RandFloatRange(radius, WorldWidth-radius),
+		Y: RandFloatRange(radius, WorldHeight-radius),
 	}
 }
 

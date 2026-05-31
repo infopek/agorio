@@ -13,5 +13,6 @@ type Player struct {
 
 	Score uint32
 
+	IsBot      bool
 	OutputChan chan<- ServerEvent
 }

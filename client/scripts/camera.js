@@ -30,7 +30,7 @@ export class Camera {
             sumMass += myCells[i].mass;
         }
 
-        const targetZoom = canvas.height / (600.0 + Math.sqrt(sumMass) * 20.0) * this.zoomOverride;
+        const targetZoom = canvas.height / (200.0 + Math.sqrt(sumMass) * 20.0) * this.zoomOverride;
         const targetX = sumX / sumMass;
         const targetY = sumY / sumMass;
 

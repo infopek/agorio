@@ -6,14 +6,18 @@ const (
 
 	TickRate int64 = 20 // ticks / sec
 
-	CollisionResolutionPasses int64 = 3
+	CollisionResolutionPasses int64   = 3
+	EmptySpaceMaxAttempts     int64   = 30
+	EmptySpaceRadiusQuery     float64 = 200.0
+	EmptySpaceRadiusLeeway    float64 = 50.0
 
 	// Player
 	MaxNameLength int64 = 16
+	TargetPlayers int64 = 5
 
 	BaseSpeed     float64 = 8.0 // world units per tick at StartMass
-	MinSpeed      float64 = 1.50
-	SpeedExponent float64 = 0.20 // 0.0 = big cells stay a bit faster, 1.0 = big cells slow down more
+	MinSpeed      float64 = 1.5
+	SpeedExponent float64 = 0.2  // 0.0 = big cells stay a bit faster, 1.0 = big cells slow down more
 	TurnSpeed     float64 = 0.45 // 0.0 = slow, 1.0 = fast
 
 	CellCenterThreshold float64 = 7.0 // radius / {val} is considered the center, used for movement
@@ -23,16 +27,16 @@ const (
 	RadiusScale float64 = 3.6 // mass to radius constant
 
 	MassDecayRate     float64 = 0.000015
-	MassDecayExponent float64 = 1.40 // 1.0 = big cells decay linearly, 2.0 = quadratic decay relative to mass
+	MassDecayExponent float64 = 1.4  // 1.0 = big cells decay linearly, 2.0 = quadratic decay relative to mass
 	MinDecayMass      float64 = 20.0 // can't decay below or at this mass
 
-	EatDistanceThreshold float64 = 0.40 // overlap of radii required for eating
-	EatMassThreshold     float64 = 1.20 // mass ratio required for eating
+	EatDistanceThreshold float64 = 0.4 // overlap of radii required for eating
+	EatMassThreshold     float64 = 1.2 // mass ratio required for eating
 
 	SplitMaxCells             int64   = 16 // max amount of cells you can have with splitting
 	SplitMinMass              float64 = 20.0
-	ForceSplitMassThreshold   float64 = 15000.0
-	SplitMomentumFactor       float64 = 20.0 // momentum magnitude after split
+	MaxCellMass               float64 = 15000.0 // auto split at or above this mass
+	SplitMomentumFactor       float64 = 20.0    // momentum magnitude after split
 	SplitMomentumRadiusFactor float64 = 0.5
 	MomentumThreshold         float64 = 7.0  // below this value, collisions kick in
 	SplitMomentumDecay        float64 = 0.83 // split momentum decays by this amount every tick
@@ -44,21 +48,23 @@ const (
 	EjectPenalty       float64 = 1.30 // the cell loses the amount * penalty on feeding
 
 	MergeTimerStartSeconds float64 = 13.0 // seconds until merge can happen
-	MergeMinOverlap        float64 = 0.4
-	MergeCooldownSeconds   float64 = 1.0 // extra seconds after merging to merge again
+	MergeTimerMassFactor   float64 = 0.02 // how much the mass influences extra time
+	MaxMergeTimer          float64 = 30.0
+	MergeMinOverlap        float64 = 0.3
+	MergeCooldownSeconds   float64 = 0.5 // extra seconds after merging to merge again
 
 	// Pellet
 	MaxPellets        int64   = 800
-	PelletSpawnAmount int64   = 2   // per tick
-	PelletSpawnChance float64 = 0.9 // per tick
+	PelletSpawnAmount int64   = 3   // per tick
+	PelletSpawnChance float64 = 0.2 // per tick
 	MinPelletMass     float64 = 1.0
 	MaxPelletMass     float64 = 2.5
 
 	// Virus
 	MinViruses              int64   = 50
-	MaxViruses              int64   = 80  // from MinViruses, we could spawn this many via feeding
-	VirusSpawnAmount        int64   = 1   // per tick
-	VirusSpawnChance        float64 = 0.1 // per tick
+	MaxViruses              int64   = 80   // from MinViruses, we could spawn this many via feeding
+	VirusSpawnAmount        int64   = 1    // per tick
+	VirusSpawnChance        float64 = 0.15 // per tick
 	VirusStartMass          float64 = 100.0
 	VirusPopEqualSplitRange float64 = 5.0 // from SplitMinMass, used for a virus pop rule
 	VirusPopDampenFactor    float64 = 0.8 // Momentum dampener
@@ -91,7 +97,21 @@ var (
 		"Sir EatALot",
 		"Nom Nom",
 		"Wun Wun",
+		"Jumbo",
+		"Agar Youtube",
 		"Chonker",
 		"Clanker",
+	}
+
+	BotNames = [...]string{
+		"Latvia",
+		"9gag",
+		"4chan",
+		"Hungary",
+		"Poland",
+		"Reddit",
+		"X",
+		"YouTube",
+		"Google",
 	}
 )

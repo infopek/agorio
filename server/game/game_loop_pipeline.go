@@ -14,6 +14,7 @@ import (
  *
  */
 func (w *World) rebuildGrids() {
+	//log.Printf("1")
 	w.cellGrid.Clear()
 	for _, c := range w.Cells {
 		w.cellGrid.Insert(c.Position, c)
@@ -35,7 +36,7 @@ func (w *World) rebuildGrids() {
 	}
 }
 
-/** World.applyPhysics
+/** World.moveCells
  *
  * Loops through all the players, their cells, and applies
  *  potential split momentum, velocity physics
@@ -43,13 +44,12 @@ func (w *World) rebuildGrids() {
  * Applies momentum to all ejected mass
  *
  */
-func (w *World) applyPhysics() {
+func (w *World) moveCells() {
+	// Cells
+	//log.Printf("2")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
-			cell, ok := w.Cells[id]
-			if !ok {
-				continue // cell doesn't exit
-			}
+			cell := w.Cells[id]
 
 			// Cell may have post-split momentum
 			if cell.Momentum.MagnitudeSq() > 0.0 {
@@ -74,16 +74,15 @@ func (w *World) applyPhysics() {
 			speed := BaseSpeed * math.Pow(StartMass/cell.Mass, SpeedExponent)
 			speed = math.Max(speed, MinSpeed) * speedFactor
 			desired := diff.Scale(1.0 / dist) // normalize
+			actual := desired.Sub(cell.Direction)
 
-			cell.Direction = cell.Direction.Add(
-				desired.Sub(cell.Direction).Scale(TurnSpeed), // smooth turning towards desired dir
-			).Normalize()
-			cell.Position = cell.Position.Add(
-				cell.Direction.Scale(speed),
-			)
+			// Smooth turning towards desired dir
+			cell.Direction = cell.Direction.Add(actual.Scale(TurnSpeed)).Normalize()
+			cell.Position = cell.Position.Add(cell.Direction.Scale(speed))
 		}
 	}
 
+	// Ejects
 	for _, e := range w.Ejects {
 		if e.Momentum.MagnitudeSq() <= 0.0 {
 			continue // stationary mass
@@ -96,6 +95,7 @@ func (w *World) applyPhysics() {
 		}
 	}
 
+	// Viruses
 	for _, v := range w.Viruses {
 		if v.Momentum.MagnitudeSq() <= 0.0 {
 			continue // stationary virus
@@ -115,21 +115,14 @@ func (w *World) applyPhysics() {
  *
  * Larger cells lose mass faster
  *
- * Formula:
- *  loss = r * m ^ exp
- *
- * Where
- *  loss: resulting mass loss every second
- *  r:    rate of loss
- *  m:    mass of cell
- *  exp:  how much mass contributes to loss
  */
 func (w *World) decayMass() {
+	//log.Printf("3")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
-			cell, ok := w.Cells[id]
-			if !ok || cell.Mass <= MinDecayMass {
-				continue // cell doesn't exit or reached min decay threshold
+			cell := w.Cells[id]
+			if cell.Mass <= MinDecayMass {
+				continue // cell reached min decay threshold
 			}
 
 			lossPerSec := math.Pow(cell.Mass, MassDecayExponent) * MassDecayRate
@@ -149,21 +142,20 @@ func (w *World) decayMass() {
  *
  */
 func (w *World) resolveCollisions() {
+	//log.Printf("4")
 	for range CollisionResolutionPasses {
 		for _, p := range w.Players {
 			for _, idA := range p.CellIDs {
-				cellA, ok := w.Cells[idA]
-				if !ok {
-					continue // cell doesn't exist
-				}
+				cellA := w.Cells[idA]
 
 				neighbors := w.cellGrid.GetNeighbors(cellA.Position, cellA.Radius())
 				for _, cellB := range neighbors {
 					if cellA.ID == cellB.ID || cellB.OwnerID != cellA.OwnerID {
 						continue // skip self and other players' cells
 					}
-					if cellA.MergeTimer == 0.0 && cellB.MergeTimer == 0.0 {
-						continue // both cells can merge, let them overlap
+					if cellA.MergeTimer == 0.0 && cellB.MergeTimer == 0.0 &&
+						cellA.Mass+cellB.Mass < MaxCellMass {
+						continue // both cells can merge without autosplit, let them overlap
 					}
 					if cellA.Momentum.MagnitudeSq() > MomentumThreshold*MomentumThreshold ||
 						cellB.Momentum.MagnitudeSq() > MomentumThreshold*MomentumThreshold {
@@ -217,26 +209,37 @@ func (w *World) resolveCollisions() {
  *
  */
 func (w *World) clampToWorldBounds() {
+	//log.Printf("5")
 	// Cells
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
-			cell, ok := w.Cells[id]
-			if !ok {
-				continue // cell doesn't exist
-			}
-
+			cell := w.Cells[id]
 			cell.Position.X = Clamp(cell.Position.X, 0.0, WorldWidth)
 			cell.Position.Y = Clamp(cell.Position.Y, 0.0, WorldHeight)
 		}
 	}
 
-	// Pellets
+	// Pellets (bouncy-bounce)
 	for _, e := range w.Ejects {
-		e.Position.X = Clamp(e.Position.X, 0.0, WorldWidth)
-		e.Position.Y = Clamp(e.Position.Y, 0.0, WorldHeight)
+		if e.Position.X < e.Radius() {
+			e.Position.X = e.Radius()
+			e.Momentum.X = -e.Momentum.X
+		}
+		if e.Position.X > WorldWidth-e.Radius() {
+			e.Position.X = WorldWidth - e.Radius()
+			e.Momentum.X = -e.Momentum.X
+		}
+		if e.Position.Y < e.Radius() {
+			e.Position.Y = e.Radius()
+			e.Momentum.Y = -e.Momentum.Y
+		}
+		if e.Position.Y > WorldHeight-e.Radius() {
+			e.Position.Y = WorldHeight - e.Radius()
+			e.Momentum.Y = -e.Momentum.Y
+		}
 	}
 
-	// Viruses (they be bouncing)
+	// Viruses (they be bouncing too)
 	for _, v := range w.Viruses {
 		if v.Position.X < v.Radius() {
 			v.Position.X = v.Radius()
@@ -257,26 +260,17 @@ func (w *World) clampToWorldBounds() {
 	}
 }
 
-/*
-  - World.bounceEntity
-    *
-    *
-
 /** World.decrementMergeTimer
-
-	*
-	* Loops through all the players, their cells, and decrements
-	*  the cells' merge timer
-	*
-*/
+ *
+ * Loops through all the players, their cells, and decrements
+ *  the cells' merge timer
+ *
+ */
 func (w *World) decrementMergeTimer() {
+	//log.Printf("6")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
-			cell, ok := w.Cells[id]
-			if !ok {
-				continue // cell doesn't exist
-			}
-
+			cell := w.Cells[id]
 			cell.MergeTimer = max(0.0, cell.MergeTimer-1.0/float64(TickRate))
 		}
 	}
@@ -294,21 +288,19 @@ func (w *World) recombineCells() {
 	toRemove := map[uuid.UUID]bool{}
 	for _, p := range w.Players {
 		for i, idA := range p.CellIDs {
-			if toRemove[idA] {
-				continue // cell will be removed
-			}
-			cellA, ok := w.Cells[idA]
-			if !ok || cellA.MergeTimer != 0.0 {
-				continue // cell doesn't exist or can't merge
+			cellA := w.Cells[idA]
+			if cellA.MergeTimer != 0.0 {
+				continue // can't merge
 			}
 
 			for _, idB := range p.CellIDs[i+1:] {
 				if toRemove[idB] {
-					continue // cell will be removed
+					continue // cell will be removed, skip
 				}
-				cellB, ok := w.Cells[idB]
-				if !ok || cellB.MergeTimer != 0.0 {
-					continue // cell doesn't exist or can't merge
+
+				cellB := w.Cells[idB]
+				if cellB.MergeTimer != 0.0 {
+					continue // can't merge
 				}
 
 				var larger, smaller *Cell
@@ -327,7 +319,7 @@ func (w *World) recombineCells() {
 					larger.MergeTimer = MergeCooldownSeconds
 					toRemove[smaller.ID] = true
 					if smaller == cellA {
-						break
+						break // reference cell to check against gone, get next
 					}
 				}
 			}
@@ -346,14 +338,15 @@ func (w *World) recombineCells() {
  *
  */
 func (w *World) eatPellets() {
+	//log.Printf("7")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
-			cell, ok := w.Cells[id]
-			if !ok {
-				continue // cell doesn't exist
-			}
-
-			for _, pellet := range w.Pellets {
+			cell := w.Cells[id]
+			neighbors := w.pelletGrid.GetNeighbors(cell.Position, cell.Radius())
+			for _, pellet := range neighbors {
+				if _, ok := w.Pellets[pellet.ID]; !ok {
+					continue // pellet no longer exists
+				}
 				if cell.Position.DistanceTo(pellet.Position) < cell.Radius() {
 					// Eat the pellet
 					cell.Mass += pellet.Mass
@@ -371,14 +364,16 @@ func (w *World) eatPellets() {
  *
  */
 func (w *World) eatEjects() {
+	//log.Printf("8")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
-			cell, ok := w.Cells[id]
-			if !ok {
-				continue // cell doesn't exist
-			}
+			cell := w.Cells[id]
+			neighbors := w.ejectGrid.GetNeighbors(cell.Position, cell.Radius())
+			for _, eject := range neighbors {
+				if _, ok := w.Ejects[eject.ID]; !ok {
+					continue // eject no longer exists
+				}
 
-			for _, eject := range w.Ejects {
 				if cell.Position.DistanceTo(eject.Position) < cell.Radius() {
 					// Eat the eject
 					cell.Mass += eject.Mass
@@ -396,43 +391,50 @@ func (w *World) eatEjects() {
  *
  */
 func (w *World) eatPlayers() {
-	deadPlayers := []uuid.UUID{}
+	//log.Printf("9")
+	deadPlayers := map[uuid.UUID]bool{}
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
-			cell, ok := w.Cells[id]
-			if !ok {
-				continue // cell doesn't exist
+			cellA, ok := w.Cells[id]
+			if !ok || deadPlayers[cellA.OwnerID] {
+				continue // cell doesn't exist or player already dead
 			}
 
-			for _, otherCell := range w.Cells {
-				if otherCell.OwnerID == p.ID {
+			neighbors := w.cellGrid.GetNeighbors(cellA.Position, cellA.Radius())
+			for _, cellB := range neighbors {
+				cellB, ok = w.Cells[cellB.ID]
+				if !ok || deadPlayers[cellB.OwnerID] {
+					continue // cell doesn't exist or player already dead
+				}
+
+				if cellB.OwnerID == p.ID {
 					continue // we don't eat our own cells
 				}
 
-				if float64(cell.Mass) <= float64(otherCell.Mass)*EatMassThreshold {
+				if float64(cellA.Mass) <= float64(cellB.Mass)*EatMassThreshold {
 					continue // we are not big enough
 				}
 
-				if cell.Position.DistanceTo(otherCell.Position) >=
-					(cell.Radius() - otherCell.Radius()*EatDistanceThreshold) {
+				if cellA.Position.DistanceTo(cellB.Position) >=
+					(cellA.Radius() - cellB.Radius()*EatDistanceThreshold) {
 					continue // we are not overlapping enough
 				}
 
 				// Eat the cell
-				victim := w.Players[otherCell.OwnerID]
+				victim := w.Players[cellB.OwnerID]
 
-				cell.Mass += otherCell.Mass
-				w.removeCell(otherCell.ID)
+				cellA.Mass += cellB.Mass
+				w.removeCell(cellB.ID)
 
 				if len(victim.CellIDs) == 0 {
-					deadPlayers = append(deadPlayers, victim.ID)
+					deadPlayers[victim.ID] = true
 				}
 			}
 		}
 	}
 
 	// Clean up the dead
-	for _, id := range deadPlayers {
+	for id := range deadPlayers {
 		w.removePlayer(id)
 	}
 }
@@ -444,6 +446,7 @@ func (w *World) eatPlayers() {
  *
  */
 func (w *World) eatVirus() {
+	//log.Printf("10")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
 			cell, ok := w.Cells[id]
@@ -451,19 +454,25 @@ func (w *World) eatVirus() {
 				continue // cell doesn't exist
 			}
 
-			for _, v := range w.Viruses {
-				if float64(cell.Mass) <= float64(v.Mass)*EatMassThreshold {
+			neighbors := w.virusGrid.GetNeighbors(cell.Position, cell.Radius())
+			for _, v := range neighbors {
+				virus, ok := w.Viruses[v.ID]
+				if !ok {
+					continue // virus doesn't exist
+				}
+
+				if float64(cell.Mass) <= float64(virus.Mass)*EatMassThreshold {
 					continue // we are not big enough
 				}
 
-				if cell.Position.DistanceTo(v.Position) >=
-					(cell.Radius() - v.Radius()*EatDistanceThreshold) {
+				if cell.Position.DistanceTo(virus.Position) >=
+					(cell.Radius() - virus.Radius()*EatDistanceThreshold) {
 					continue // we are not overlapping enough
 				}
 
 				// Eat virus
-				cell.Mass += v.Mass
-				delete(w.Viruses, v.ID)
+				cell.Mass += virus.Mass
+				delete(w.Viruses, virus.ID)
 
 				w.popCell(cell)
 			}
@@ -471,10 +480,22 @@ func (w *World) eatVirus() {
 	}
 }
 
+/** World.popCell
+ *
+ * Preconditions:
+ *  - cell exists
+ *
+ * Helper for popping a cell when it eats a virus
+ *
+ * Uses the same mechanism as normal agar
+ * Thanks: https://www.youtube.com/watch?v=MjlVSVvxADk
+ *
+ */
 func (w *World) popCell(cell *Cell) {
+	//log.Printf("11")
 	p, ok := w.Players[cell.OwnerID]
 	if !ok {
-		return // cell doesn't belong to anyone
+		return // cell owner dead / disconnected
 	}
 
 	available := SplitMaxCells - int64(len(p.CellIDs))
@@ -486,12 +507,12 @@ func (w *World) popCell(cell *Cell) {
 	maxPieces := int64(min(float64(available), math.Floor(totalMass/SplitMinMass)-1))
 	massPerPiece := cell.Mass / float64(maxPieces+1)
 
-	// Rule 1: can we split into max pieces evenly?
+	// Can we split into max pieces evenly?
 	if massPerPiece <= SplitMinMass+VirusPopEqualSplitRange {
 		// Even split into max pieces
 		cell.Mass = massPerPiece
 		for range maxPieces {
-			w.createPopPiece(cell, p, massPerPiece)
+			w.createPopPiece(cell, massPerPiece)
 		}
 	} else {
 		// Recursive halving
@@ -513,13 +534,13 @@ func (w *World) popCell(cell *Cell) {
 				// Force even split, use all slots
 				evenMass = siblingMass / float64(slotsLeft)
 				for range slotsLeft {
-					w.createPopPiece(cell, p, evenMass)
+					w.createPopPiece(cell, evenMass)
 					slotsUsed++
 				}
 				break
 			} else {
 				// Create one sibling with this mass, continue halving
-				w.createPopPiece(cell, p, siblingMass)
+				w.createPopPiece(cell, siblingMass)
 				slotsUsed++
 			}
 		}
@@ -527,34 +548,42 @@ func (w *World) popCell(cell *Cell) {
 		cell.Mass = remainingMass
 	}
 
-	cell.MergeTimer = MergeTimerStartSeconds
+	cell.MergeTimer = min(MaxMergeTimer, MergeTimerStartSeconds+(cell.Mass*MergeTimerMassFactor))
 }
 
 /** World.createPopPiece
  *
- * Helper function for creating a cell in the world for
- *  player p when popped by a virus
+ * Helper function for creating a cell
+ *  from parent cell pc in the world for
+ *  when popped by a virus
  *
  * Uses the parent cell (pc) a lot
  *
  */
-func (w *World) createPopPiece(pc *Cell, p *Player, mass float64) {
+func (w *World) createPopPiece(pc *Cell, mass float64) {
+	//log.Printf("12")
 	angle := RandFloatRange(0.0, 2.0*math.Pi)
 	dir := Vec2{
 		X: math.Cos(angle),
 		Y: math.Sin(angle),
 	}
 
+	p, ok := w.Players[pc.OwnerID]
+	if !ok {
+		log.Printf("couldn't create popped piece, player is dead")
+		return // owner dead or disconnected
+	}
 	newCell := Cell{
 		ID:      uuid.New(),
 		OwnerID: pc.OwnerID,
 
 		Position:  pc.Position.Add(dir.Scale(pc.Radius() * 0.3)),
 		Direction: dir,
+		// TODO: figure something else out
 		Momentum: dir.Scale(SplitMomentumFactor*VirusPopDampenFactor +
-			math.Sqrt(Radius(mass))*SplitMomentumRadiusFactor), // bit weird to use Radius() here
+			math.Sqrt(Radius(mass))*SplitMomentumRadiusFactor),
 
-		MergeTimer: MergeTimerStartSeconds,
+		MergeTimer: min(MaxMergeTimer, MergeTimerStartSeconds+(mass*MergeTimerMassFactor)),
 		Mass:       mass,
 		Color:      pc.Color,
 	}
@@ -563,36 +592,96 @@ func (w *World) createPopPiece(pc *Cell, p *Player, mass float64) {
 	w.Cells[newCell.ID] = &newCell
 }
 
+/** World.autoSplit
+ *
+ * When a cell hits the maximum allowed mass, we
+ *  split it automatically in a random direction
+ *
+ */
+func (w *World) autoSplit() {
+	for _, p := range w.Players {
+		cellIDs := make([]uuid.UUID, len(p.CellIDs))
+		copy(cellIDs, p.CellIDs)
+
+		for _, id := range cellIDs {
+			cell := w.Cells[id]
+			if cell.Mass < MaxCellMass {
+				continue // not at limit yet
+			}
+
+			if int64(len(p.CellIDs)) >= SplitMaxCells {
+				cell.Mass = MaxCellMass // cap it, can't split
+				continue
+			}
+
+			// Original cell gets the extra
+			newMass := MaxCellMass / 2.0
+			excess := cell.Mass - MaxCellMass
+			cell.Mass = newMass + excess
+			cell.MergeTimer += MergeCooldownSeconds
+
+			dir := Vec2{
+				X: RandFloatRange(0.0, 1.0),
+				Y: RandFloatRange(0.0, 1.0),
+			}
+			newCell := Cell{
+				ID:      uuid.New(),
+				OwnerID: cell.OwnerID,
+
+				Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius() / 2.0)),
+				Direction: dir,
+				Momentum:  dir.Scale(SplitMomentumFactor + math.Sqrt(cell.Radius())*SplitMomentumRadiusFactor),
+
+				MergeTimer: min(MaxMergeTimer, MergeTimerStartSeconds+(newMass*MergeTimerMassFactor)),
+
+				Mass:  newMass,
+				Color: cell.Color,
+			}
+
+			p.CellIDs = append(p.CellIDs, newCell.ID)
+			w.Cells[newCell.ID] = &newCell
+		}
+	}
+}
+
 /** World.feedViruses
  *
- * When a pellet hits a virus from a direction, the virus absorbs it,
- *  and if it reaches its limit, it shoots another virus from itself in the direction
- *  the pellet came from
+ * When an eject hits a virus from a direction, the virus absorbs it,
+ *  and if it reaches its limit, it shoots another virus from itself
+ *  in the opposite direction the eject came from
+ *
  */
 func (w *World) feedViruses() {
 	toRemove := map[uuid.UUID]bool{}
+	//log.Printf("13")
 
-	for _, e := range w.Ejects {
-		if toRemove[e.ID] {
-			continue // pellet already absorbed by a virus
+	for _, eject := range w.Ejects {
+		if toRemove[eject.ID] {
+			continue // eject already absorbed by a virus
 		}
-		neighbors := w.virusGrid.GetNeighbors(e.Position, e.Radius())
+
+		neighbors := w.virusGrid.GetNeighbors(eject.Position, eject.Radius())
 		for _, v := range neighbors {
-			dist := e.Position.DistanceTo(v.Position)
-			if dist < v.Radius() {
-				v.Mass += e.Mass
-				v.FedCount++
-				toRemove[e.ID] = true
+			virus, ok := w.Viruses[v.ID]
+			if !ok {
+				continue // virus doesn't exist
+			}
+
+			dist := eject.Position.DistanceTo(virus.Position)
+			if dist < virus.Radius() {
+				virus.Mass += eject.Mass
+				virus.FedCount++
+				toRemove[eject.ID] = true
 
 				var dir Vec2
-				if e.Momentum.MagnitudeSq() < 0.01 {
-					dir = v.Position.Sub(e.Position).Normalize()
+				if eject.Momentum.MagnitudeSq() < 0.01 {
+					dir = virus.Position.Sub(eject.Position).Normalize()
 				} else {
-					dir = e.Momentum.Normalize()
+					dir = eject.Momentum.Normalize()
 				}
 
-				if v.FedCount >= VirusFeedToShoot {
-					w.shootVirus(v, dir)
+				if virus.FedCount >= VirusFeedToShoot {
+					w.shootVirus(virus, dir)
 				}
 			}
 		}
@@ -605,6 +694,9 @@ func (w *World) feedViruses() {
 
 /** world.shootVirus
  *
+ * Preconditions:
+ *  - virus exists
+ *
  * Helper for World.feedViruses
  *
  * Spawns a new virus from parent virus (pv) in
@@ -612,6 +704,7 @@ func (w *World) feedViruses() {
  *
  */
 func (w *World) shootVirus(pv *Virus, dir Vec2) {
+	//log.Printf("15")
 	newVirus := Virus{
 		ID: uuid.New(),
 
@@ -637,6 +730,7 @@ func (w *World) shootVirus(pv *Virus, dir Vec2) {
  *
  */
 func (w *World) spawnPellets() {
+	//log.Printf("16")
 	if int64(len(w.Pellets)) >= MaxPellets {
 		return // we have enough already
 	}
@@ -650,7 +744,7 @@ func (w *World) spawnPellets() {
 		pellet := Pellet{
 			ID: uuid.New(),
 
-			Position: w.findEmptySpace(),
+			Position: w.findEmptySpace(MaxPelletMass),
 
 			Mass:  RandFloatRange(MinPelletMass, MaxPelletMass),
 			Color: w.getRandomColor(),
@@ -666,11 +760,9 @@ func (w *World) spawnPellets() {
  *  keeping in mind the current amount, maximum amount
  *  of viruses in the world
  *
- * Finds a spot which is not occupied by a player for
- *  the new ones
- *
  */
 func (w *World) spawnViruses() {
+	//log.Printf("17")
 	currNumViruses := int64(len(w.Viruses))
 	if currNumViruses >= MinViruses {
 		return // don't spawn more naturally
@@ -685,7 +777,7 @@ func (w *World) spawnViruses() {
 		virus := Virus{
 			ID: uuid.New(),
 
-			Position: w.findEmptySpace(),
+			Position: w.findEmptySpace(VirusStartMass),
 
 			Mass:  VirusStartMass,
 			Color: VirusColor,
@@ -703,6 +795,7 @@ func (w *World) spawnViruses() {
  *
  */
 func (w *World) removePlayer(playerID uuid.UUID) {
+	//log.Printf("18")
 	p, ok := w.Players[playerID]
 	if !ok {
 		return // player already removed
@@ -714,10 +807,10 @@ func (w *World) removePlayer(playerID uuid.UUID) {
 	}
 
 	// Notify player of his death
-	p.OutputChan <- DeathEvent{}
+	if !p.IsBot {
+		p.OutputChan <- DeathEvent{}
+	}
 	delete(w.Players, playerID)
-
-	log.Printf("player %v removed\n", playerID)
 }
 
 /** World.removeCell
@@ -727,9 +820,10 @@ func (w *World) removePlayer(playerID uuid.UUID) {
  *
  */
 func (w *World) removeCell(cellID uuid.UUID) {
+	//log.Printf("19")
 	c, ok := w.Cells[cellID]
 	if !ok {
-		return
+		return // cell already removed
 	}
 
 	// Remove from world
@@ -737,7 +831,7 @@ func (w *World) removeCell(cellID uuid.UUID) {
 
 	p, ok := w.Players[c.OwnerID]
 	if !ok {
-		return
+		return // player dead or disconnected
 	}
 
 	// Remove from player
@@ -754,12 +848,14 @@ func (w *World) removeCell(cellID uuid.UUID) {
  *
  * Sends a current snapshot of the world to all clients
  *
- * TODO: each player should get a clipped snapshot,
- *  only containing the necessary state in their vicinity
- *
  */
 func (w *World) broadcastState() {
+	//log.Printf("20")
 	for _, p := range w.Players {
+		if p.IsBot {
+			continue // don't broadcast to bots
+		}
+
 		center, totalMass := w.playerCenter(p)
 
 		halfW := 1000.0 + math.Sqrt(totalMass)*10.0
@@ -825,6 +921,7 @@ func (w *World) broadcastState() {
  *
  */
 func (w *World) playerCenter(p *Player) (Vec2, float64) {
+	//log.Printf("21")
 	if len(p.CellIDs) == 0 {
 		return Vec2{}, 0.0
 	}
@@ -841,4 +938,18 @@ func (w *World) playerCenter(p *Player) (Vec2, float64) {
 	center.X /= totalMass
 	center.Y /= totalMass
 	return center, totalMass
+}
+
+/** world.maintainBots
+ *
+ * Fill the world with bots until the
+ *  target player number is met
+ *
+ */
+func (w *World) maintainBots() {
+	//log.Printf("22")
+	curr := int64(len(w.Players))
+	for range TargetPlayers - curr {
+		w.spawnBot()
+	}
 }
