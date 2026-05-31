@@ -16,18 +16,18 @@ type CellDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius float64 `json:"radius"`
-	Mass   int64   `json:"mass"`
-	Color  string  `json:"color"`
+	Radius int64  `json:"radius"`
+	Mass   int64  `json:"mass"`
+	Color  string `json:"color"`
 }
 
 type PelletDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius float64 `json:"radius"`
-	Mass   int64   `json:"mass"`
-	Color  string  `json:"color"`
+	Radius int64  `json:"radius"`
+	Mass   int64  `json:"mass"`
+	Color  string `json:"color"`
 }
 
 type EjectDTO struct {
@@ -36,9 +36,9 @@ type EjectDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius float64 `json:"radius"`
-	Mass   int64   `json:"mass"`
-	Color  string  `json:"color"`
+	Radius int64  `json:"radius"`
+	Mass   int64  `json:"mass"`
+	Color  string `json:"color"`
 }
 
 type VirusDTO struct {
@@ -47,10 +47,10 @@ type VirusDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	FedCount int64   `json:"fed_count"`
-	Radius   float64 `json:"radius"`
-	Mass     int64   `json:"mass"`
-	Color    string  `json:"color"`
+	FedCount int64  `json:"fed_count"`
+	Radius   int64  `json:"radius"`
+	Mass     int64  `json:"mass"`
+	Color    string `json:"color"`
 }
 
 type TickSnapshotDTO struct {
@@ -66,6 +66,18 @@ type TickSnapshotDTO struct {
 
 type DeathEventDTO struct {
 	Type string `json:"t"`
+}
+
+type LeaderboardEntryDTO struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Score uint32 `json:"score"`
+}
+
+type LeaderboardDTO struct {
+	Type    string                `json:"t"`
+	Me      string                `json:"me"`
+	Entries []LeaderboardEntryDTO `json:"entries"`
 }
 
 func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
@@ -89,7 +101,7 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			X: c.X,
 			Y: c.Y,
 
-			Radius: c.Radius,
+			Radius: int64(c.Radius),
 			Mass:   int64(c.Mass),
 			Color:  colorToHex(c.Color),
 		}
@@ -100,7 +112,7 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			X: p.Position.X,
 			Y: p.Position.Y,
 
-			Radius: p.Radius(),
+			Radius: int64(p.Radius()),
 			Mass:   int64(p.Mass),
 			Color:  colorToHex(p.Color),
 		}
@@ -113,7 +125,7 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			X: e.Position.X,
 			Y: e.Position.Y,
 
-			Radius: e.Radius(),
+			Radius: int64(e.Radius()),
 			Mass:   int64(e.Mass),
 			Color:  colorToHex(e.Color),
 		}
@@ -127,7 +139,7 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			Y: v.Position.Y,
 
 			FedCount: v.FedCount,
-			Radius:   v.Radius(),
+			Radius:   int64(v.Radius()),
 			Mass:     int64(v.Mass),
 			Color:    colorToHex(v.Color),
 		}
@@ -142,6 +154,21 @@ func deathEventToDeathEventDTO(_ game.DeathEvent) DeathEventDTO {
 	}
 }
 
+func leaderboardToLeaderboardDTO(lb game.Leaderboard) LeaderboardDTO {
+	dto := LeaderboardDTO{
+		Type:    "leaderboard",
+		Me:      lb.Me.String(),
+		Entries: make([]LeaderboardEntryDTO, len(lb.Entries)),
+	}
+	for i := range len(dto.Entries) {
+		dto.Entries[i].ID = lb.Entries[i].ID.String()
+		dto.Entries[i].Name = lb.Entries[i].Name
+		dto.Entries[i].Score = lb.Entries[i].Score
+	}
+
+	return dto
+}
+
 func toJSON(msg game.ServerEvent) ([]byte, error) {
 	switch m := msg.(type) {
 	case game.TickSnapshot:
@@ -153,6 +180,13 @@ func toJSON(msg game.ServerEvent) ([]byte, error) {
 		return data, nil
 	case game.DeathEvent:
 		dto := deathEventToDeathEventDTO(m)
+		data, err := json.Marshal(dto)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	case game.Leaderboard:
+		dto := leaderboardToLeaderboardDTO(m)
 		data, err := json.Marshal(dto)
 		if err != nil {
 			return nil, err

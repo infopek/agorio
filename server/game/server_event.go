@@ -26,6 +26,17 @@ type CellView struct {
 	Color [3]uint8
 }
 
+/** LeaderboardEntry
+ *
+ * Data that will be included in the leaderboard
+ *
+ */
+type LeaderboardEntry struct {
+	ID    uuid.UUID
+	Name  string
+	Score uint32
+}
+
 /** TickSnapshot
  *
  * Everything a client needs to know per tick
@@ -43,5 +54,11 @@ type TickSnapshot struct {
 
 type DeathEvent struct{}
 
-func (snapshot TickSnapshot) serverEvent() {}
-func (deathEvent DeathEvent) serverEvent() {}
+type Leaderboard struct {
+	Me      uuid.UUID
+	Entries []LeaderboardEntry
+}
+
+func (snapshot TickSnapshot) serverEvent()   {}
+func (deathEvent DeathEvent) serverEvent()   {}
+func (leaderBoard Leaderboard) serverEvent() {}

@@ -4,16 +4,18 @@ const (
 	WorldWidth  float64 = 10000.0
 	WorldHeight float64 = 10000.0
 
-	TickRate int64 = 20 // ticks / sec
+	TickRate uint64 = 20 // ticks / sec
 
 	CollisionResolutionPasses int64   = 3
 	EmptySpaceMaxAttempts     int64   = 30
 	EmptySpaceRadiusQuery     float64 = 200.0
 	EmptySpaceRadiusLeeway    float64 = 50.0
 
+	LeaderboardSize int64 = 10
+
 	// Player
 	MaxNameLength int64 = 16
-	TargetPlayers int64 = 5
+	TargetPlayers int64 = 20
 
 	BaseSpeed     float64 = 8.0 // world units per tick at StartMass
 	MinSpeed      float64 = 1.5
@@ -35,7 +37,7 @@ const (
 
 	SplitMaxCells             int64   = 16 // max amount of cells you can have with splitting
 	SplitMinMass              float64 = 20.0
-	MaxCellMass               float64 = 15000.0 // auto split at or above this mass
+	MaxCellMass               float64 = 20000.0 // auto split at or above this mass
 	SplitMomentumFactor       float64 = 20.0    // momentum magnitude after split
 	SplitMomentumRadiusFactor float64 = 0.5
 	MomentumThreshold         float64 = 7.0  // below this value, collisions kick in

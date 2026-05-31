@@ -12,6 +12,7 @@ canvas {
     background-color: #ffffff;
 }
 
+/* Menu */
 #menu {
     position: absolute;
     top: 50%;
@@ -24,4 +25,37 @@ canvas {
 
 #menu.hidden {
     display: none;
+}
+
+/* Leaderboard */
+#leaderboard {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font: 14px sans-serif;
+    min-width: 150px;
+}
+
+#leaderboard h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    text-align: center;
+}
+
+#leaderboard ol {
+    margin: 0;
+    padding: 0 0 0 20px;
+}
+
+#leaderboard li {
+    padding: 2px 0;
+}
+
+#leaderboard li.me {
+    font-weight: bold;
+    color: #ffcc00;
 }

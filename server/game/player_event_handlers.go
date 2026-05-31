@@ -98,7 +98,7 @@ func (w *World) handlePlayerConnect(playerID uuid.UUID, name string, outputChan 
 
 		MergeTimer: MergeTimerStartSeconds,
 
-		Mass:  StartMass * 151.0,
+		Mass:  StartMass * 20.0,
 		Color: w.getRandomColor(),
 	}
 	p := Player{

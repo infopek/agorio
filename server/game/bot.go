@@ -23,7 +23,7 @@ func (w *World) spawnBot() {
 
 		Position: w.findEmptySpace(Radius(StartMass)),
 
-		Mass:  StartMass * 30.0,
+		Mass:  StartMass,
 		Color: color,
 	}
 

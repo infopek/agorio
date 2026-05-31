@@ -1,8 +1,8 @@
 package game
 
 import (
-	"log"
 	"math"
+	"sort"
 
 	"github.com/google/uuid"
 )
@@ -570,9 +570,9 @@ func (w *World) createPopPiece(pc *Cell, mass float64) {
 
 	p, ok := w.Players[pc.OwnerID]
 	if !ok {
-		log.Printf("couldn't create popped piece, player is dead")
 		return // owner dead or disconnected
 	}
+
 	newCell := Cell{
 		ID:      uuid.New(),
 		OwnerID: pc.OwnerID,
@@ -912,6 +912,41 @@ func (w *World) broadcastState() {
 	}
 }
 
+/** World.broadcastLeaderboard
+ *
+ * Sends the current leaderboard to all players
+ *
+ */
+func (w *World) broadcastLeaderboard() {
+	leaderboard := Leaderboard{
+		Entries: make([]LeaderboardEntry, 0, len(w.Players)),
+	}
+	for id, p := range w.Players {
+		leaderboard.Entries = append(leaderboard.Entries, LeaderboardEntry{
+			ID:    id,
+			Name:  p.Name,
+			Score: uint32(w.playerTotalMass(p)),
+		})
+	}
+
+	sort.Slice(leaderboard.Entries, func(i, j int) bool {
+		return leaderboard.Entries[i].Score > leaderboard.Entries[j].Score
+	})
+
+	cutoff := min(int64(len(leaderboard.Entries)), LeaderboardSize)
+	leaderboard.Entries = leaderboard.Entries[:cutoff]
+
+	for id, p := range w.Players {
+		if p.IsBot {
+			continue // don't broadcast to bots
+		}
+
+		leaderboard.Me = id
+
+		p.OutputChan <- leaderboard
+	}
+}
+
 /** World.playerCenter
  *
  * Helper method for World.broadcastState
@@ -920,24 +955,43 @@ func (w *World) broadcastState() {
  *  with the totalMass
  *
  */
-func (w *World) playerCenter(p *Player) (Vec2, float64) {
+func (w *World) playerCenter(player *Player) (Vec2, float64) {
 	//log.Printf("21")
-	if len(p.CellIDs) == 0 {
+	if len(player.CellIDs) == 0 {
 		return Vec2{}, 0.0
 	}
 
-	totalMass := 0.0
 	center := Vec2{}
-	for _, id := range p.CellIDs {
+	for _, id := range player.CellIDs {
 		c := w.Cells[id]
 		center.X += c.Position.X * c.Mass
 		center.Y += c.Position.Y * c.Mass
-		totalMass += c.Mass
 	}
 
+	totalMass := w.playerTotalMass(player)
 	center.X /= totalMass
 	center.Y /= totalMass
 	return center, totalMass
+}
+
+/** World.playerTotalMass
+ *
+ * Helper method for determining the sum of mass
+ *  for a player's cells
+ *
+ */
+func (w *World) playerTotalMass(player *Player) float64 {
+	if len(player.CellIDs) == 0 {
+		return 0.0
+	}
+
+	totalMass := 0.0
+	for _, id := range player.CellIDs {
+		c := w.Cells[id]
+		totalMass += c.Mass
+	}
+
+	return totalMass
 }
 
 /** world.maintainBots

@@ -1,5 +1,6 @@
 import { pushSnapshot } from './interpolation.js';
 import { toggleMenu } from './input.js';
+import { updateLeaderboard } from './leaderboard.js';
 
 /** @type {WebSocket | null} */
 let ws = null;
@@ -15,6 +16,8 @@ export function connect() {
         } else if (data.t === 'death') {
             alive = false;
             toggleMenu(true);   // show menu
+        } else if (data.t === 'leaderboard') {
+            updateLeaderboard(data.entries, data.me);
         }
     }
     ws.onerror = (e) => console.error('error: ', e);

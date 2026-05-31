@@ -93,6 +93,10 @@ func (w *World) Tick() {
 
 		w.rebuildGrids() // sync updates before sending anything
 		w.broadcastState()
+
+		if w.tick%TickRate == 0 {
+			w.broadcastLeaderboard()
+		}
 	}
 }
 
