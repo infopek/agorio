@@ -1,10 +1,10 @@
 import { Vec2 } from './vec2.js';
 import { Camera } from './camera.js';
 
-const GRID_SIZE = 50;
+const GRID_SIZE = 30;
 
-const WORLD_WIDTH = 10000;
-const WORLD_HEIGHT = 10000;
+const WORLD_WIDTH = 15000;
+const WORLD_HEIGHT = 15000;
 
 const VIRUS_FEED_TO_SHOOT = 7;
 
@@ -70,9 +70,7 @@ export function render(snapshot, camera, canvas) {
 
         drawCell(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.color);
 
-        if (cell.mass > 30.0) {
-            displayName(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.owner_name);
-        }
+        displayName(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.owner_name, camera.zoom);
         displayMass(ctx, screenCoords.x, screenCoords.y + offset, screenRadius, cell.mass);
     }
 
@@ -277,8 +275,9 @@ function displayWorldPosition(ctx, camera) {
  * @param {number} y
  * @param {number} r
  * @param {string} name
+ * @param {number} zoom
  */
-function displayName(ctx, x, y, r, name) {
+function displayName(ctx, x, y, r, name, zoom) {
     const baseSize = Math.max(13, r * 0.38);
     const scale = Math.min(1.0, 7.0 / name.length);
     const size = baseSize * scale;

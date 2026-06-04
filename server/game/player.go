@@ -11,7 +11,7 @@ type Player struct {
 	Name   string
 	Target Vec2 // mouse coords in world space
 
-	Score uint32
+	Score uint64
 
 	IsBot      bool
 	OutputChan chan<- ServerEvent

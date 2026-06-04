@@ -34,7 +34,7 @@ type CellView struct {
 type LeaderboardEntry struct {
 	ID    uuid.UUID
 	Name  string
-	Score uint32
+	Score uint64
 }
 
 /** TickSnapshot
@@ -49,7 +49,7 @@ type TickSnapshot struct {
 	Ejects  []Eject
 	Viruses []Virus
 	Tick    uint64
-	Score   uint32
+	Score   uint64
 }
 
 type DeathEvent struct{}

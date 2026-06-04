@@ -16,8 +16,8 @@ type CellDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius int64  `json:"radius"`
-	Mass   int64  `json:"mass"`
+	Radius uint64  `json:"radius"`
+	Mass   uint64  `json:"mass"`
 	Color  string `json:"color"`
 }
 
@@ -25,8 +25,8 @@ type PelletDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius int64  `json:"radius"`
-	Mass   int64  `json:"mass"`
+	Radius uint64  `json:"radius"`
+	Mass   uint64  `json:"mass"`
 	Color  string `json:"color"`
 }
 
@@ -36,8 +36,8 @@ type EjectDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius int64  `json:"radius"`
-	Mass   int64  `json:"mass"`
+	Radius uint64  `json:"radius"`
+	Mass   uint64  `json:"mass"`
 	Color  string `json:"color"`
 }
 
@@ -47,9 +47,9 @@ type VirusDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	FedCount int64  `json:"fed_count"`
-	Radius   int64  `json:"radius"`
-	Mass     int64  `json:"mass"`
+	FedCount uint64 `json:"fed_count"`
+	Radius   uint64 `json:"radius"`
+	Mass     uint64 `json:"mass"`
 	Color    string `json:"color"`
 }
 
@@ -61,7 +61,7 @@ type TickSnapshotDTO struct {
 	Viruses []VirusDTO  `json:"viruses"`
 	Me      string      `json:"me"`
 	Tick    uint64      `json:"tick"`
-	Score   uint32      `json:"score"`
+	Score   uint64      `json:"score"`
 }
 
 type DeathEventDTO struct {
@@ -71,7 +71,7 @@ type DeathEventDTO struct {
 type LeaderboardEntryDTO struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
-	Score uint32 `json:"score"`
+	Score uint64 `json:"score"`
 }
 
 type LeaderboardDTO struct {
@@ -101,8 +101,8 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			X: c.X,
 			Y: c.Y,
 
-			Radius: int64(c.Radius),
-			Mass:   int64(c.Mass),
+			Radius: uint64(c.Radius),
+			Mass:   uint64(c.Mass),
 			Color:  colorToHex(c.Color),
 		}
 	}
@@ -112,8 +112,8 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			X: p.Position.X,
 			Y: p.Position.Y,
 
-			Radius: int64(p.Radius()),
-			Mass:   int64(p.Mass),
+			Radius: uint64(p.Radius()),
+			Mass:   uint64(p.Mass),
 			Color:  colorToHex(p.Color),
 		}
 	}
@@ -125,8 +125,8 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			X: e.Position.X,
 			Y: e.Position.Y,
 
-			Radius: int64(e.Radius()),
-			Mass:   int64(e.Mass),
+			Radius: uint64(e.Radius()),
+			Mass:   uint64(e.Mass),
 			Color:  colorToHex(e.Color),
 		}
 	}
@@ -139,8 +139,8 @@ func tickSnapshotToTickSnapshotDTO(snapshot game.TickSnapshot) TickSnapshotDTO {
 			Y: v.Position.Y,
 
 			FedCount: v.FedCount,
-			Radius:   int64(v.Radius()),
-			Mass:     int64(v.Mass),
+			Radius:   uint64(v.Radius()),
+			Mass:     uint64(v.Mass),
 			Color:    colorToHex(v.Color),
 		}
 	}

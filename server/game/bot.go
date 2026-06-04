@@ -21,9 +21,9 @@ func (w *World) spawnBot() {
 		ID:      uuid.New(),
 		OwnerID: id,
 
-		Position: w.findEmptySpace(Radius(StartMass)),
+		Position: w.findEmptySpace(Radius(BotStartMass)),
 
-		Mass:  StartMass,
+		Mass:  BotStartMass,
 		Color: color,
 	}
 

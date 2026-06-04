@@ -1,6 +1,7 @@
 package game
 
 import (
+	_ "log"
 	"math"
 	"sort"
 
@@ -14,7 +15,7 @@ import (
  *
  */
 func (w *World) rebuildGrids() {
-	//log.Printf("1")
+	//log.Printf("rebuildGrids")
 	w.cellGrid.Clear()
 	for _, c := range w.Cells {
 		w.cellGrid.Insert(c.Position, c)
@@ -46,7 +47,7 @@ func (w *World) rebuildGrids() {
  */
 func (w *World) moveCells() {
 	// Cells
-	//log.Printf("2")
+	//log.Printf("moveCells")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
 			cell := w.Cells[id]
@@ -117,7 +118,7 @@ func (w *World) moveCells() {
  *
  */
 func (w *World) decayMass() {
-	//log.Printf("3")
+	//log.Printf("decayMass")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
 			cell := w.Cells[id]
@@ -142,7 +143,7 @@ func (w *World) decayMass() {
  *
  */
 func (w *World) resolveCollisions() {
-	//log.Printf("4")
+	//log.Printf("resolveCollisions")
 	for range CollisionResolutionPasses {
 		for _, p := range w.Players {
 			for _, idA := range p.CellIDs {
@@ -150,6 +151,10 @@ func (w *World) resolveCollisions() {
 
 				neighbors := w.cellGrid.GetNeighbors(cellA.Position, cellA.Radius())
 				for _, cellB := range neighbors {
+					_, ok := w.Cells[cellB.ID]
+					if !ok {
+						continue // cell doesn't exist
+					}
 					if cellA.ID == cellB.ID || cellB.OwnerID != cellA.OwnerID {
 						continue // skip self and other players' cells
 					}
@@ -186,6 +191,11 @@ func (w *World) resolveCollisions() {
 	for _, ejectA := range w.Ejects {
 		neighbors := w.ejectGrid.GetNeighbors(ejectA.Position, ejectA.Radius())
 		for _, ejectB := range neighbors {
+			_, ok := w.Ejects[ejectB.ID]
+			if !ok {
+				continue // eject doesn't exist
+			}
+
 			diff := ejectB.Position.Sub(ejectA.Position)
 			dist := diff.Magnitude()
 			minDist := ejectA.Radius() + ejectB.Radius()
@@ -209,7 +219,7 @@ func (w *World) resolveCollisions() {
  *
  */
 func (w *World) clampToWorldBounds() {
-	//log.Printf("5")
+	//log.Printf("clampToWorldBounds")
 	// Cells
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
@@ -267,7 +277,7 @@ func (w *World) clampToWorldBounds() {
  *
  */
 func (w *World) decrementMergeTimer() {
-	//log.Printf("6")
+	//log.Printf("decrementMergeTimer")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
 			cell := w.Cells[id]
@@ -338,7 +348,7 @@ func (w *World) recombineCells() {
  *
  */
 func (w *World) eatPellets() {
-	//log.Printf("7")
+	//log.Printf("eatPellets")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
 			cell := w.Cells[id]
@@ -347,6 +357,7 @@ func (w *World) eatPellets() {
 				if _, ok := w.Pellets[pellet.ID]; !ok {
 					continue // pellet no longer exists
 				}
+
 				if cell.Position.DistanceTo(pellet.Position) < cell.Radius() {
 					// Eat the pellet
 					cell.Mass += pellet.Mass
@@ -364,7 +375,7 @@ func (w *World) eatPellets() {
  *
  */
 func (w *World) eatEjects() {
-	//log.Printf("8")
+	//log.Printf("eatEjects")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
 			cell := w.Cells[id]
@@ -391,7 +402,7 @@ func (w *World) eatEjects() {
  *
  */
 func (w *World) eatPlayers() {
-	//log.Printf("9")
+	//log.Printf("eatPlayers")
 	deadPlayers := map[uuid.UUID]bool{}
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
@@ -402,7 +413,7 @@ func (w *World) eatPlayers() {
 
 			neighbors := w.cellGrid.GetNeighbors(cellA.Position, cellA.Radius())
 			for _, cellB := range neighbors {
-				cellB, ok = w.Cells[cellB.ID]
+				_, ok = w.Cells[cellB.ID]
 				if !ok || deadPlayers[cellB.OwnerID] {
 					continue // cell doesn't exist or player already dead
 				}
@@ -446,7 +457,7 @@ func (w *World) eatPlayers() {
  *
  */
 func (w *World) eatVirus() {
-	//log.Printf("10")
+	//log.Printf("eatVirus")
 	for _, p := range w.Players {
 		for _, id := range p.CellIDs {
 			cell, ok := w.Cells[id]
@@ -455,13 +466,13 @@ func (w *World) eatVirus() {
 			}
 
 			neighbors := w.virusGrid.GetNeighbors(cell.Position, cell.Radius())
-			for _, v := range neighbors {
-				virus, ok := w.Viruses[v.ID]
+			for _, virus := range neighbors {
+				_, ok := w.Viruses[virus.ID]
 				if !ok {
 					continue // virus doesn't exist
 				}
 
-				if float64(cell.Mass) <= float64(virus.Mass)*EatMassThreshold {
+				if cell.Mass <= virus.Mass*EatMassThreshold {
 					continue // we are not big enough
 				}
 
@@ -492,13 +503,13 @@ func (w *World) eatVirus() {
  *
  */
 func (w *World) popCell(cell *Cell) {
-	//log.Printf("11")
+	//log.Printf("popCell")
 	p, ok := w.Players[cell.OwnerID]
 	if !ok {
 		return // cell owner dead / disconnected
 	}
 
-	available := SplitMaxCells - int64(len(p.CellIDs))
+	available := SplitMaxCells - uint64(len(p.CellIDs))
 	if available <= 0 {
 		return // can't split more
 	}
@@ -517,7 +528,7 @@ func (w *World) popCell(cell *Cell) {
 	} else {
 		// Recursive halving
 		remainingMass := totalMass
-		slotsUsed := int64(0)
+		slotsUsed := uint64(0)
 
 		for remainingMass > SplitMinMass*2.0 && slotsUsed < available {
 			// Take half for a sibling
@@ -527,7 +538,7 @@ func (w *World) popCell(cell *Cell) {
 			slotsLeft := available - slotsUsed
 
 			// Can the sibling be evenly split into slotsLeft pieces?
-			evenPieces := min(int64(math.Floor(siblingMass/SplitMinMass)), slotsLeft)
+			evenPieces := min(uint64(math.Floor(siblingMass/SplitMinMass)), slotsLeft)
 			evenMass := siblingMass / float64(evenPieces)
 
 			if evenMass <= SplitMinMass+VirusPopEqualSplitRange || slotsLeft <= 2 {
@@ -553,6 +564,9 @@ func (w *World) popCell(cell *Cell) {
 
 /** World.createPopPiece
  *
+ * Preconditions:
+ *  - parent cell exists
+ *
  * Helper function for creating a cell
  *  from parent cell pc in the world for
  *  when popped by a virus
@@ -561,7 +575,7 @@ func (w *World) popCell(cell *Cell) {
  *
  */
 func (w *World) createPopPiece(pc *Cell, mass float64) {
-	//log.Printf("12")
+	//log.Printf("createPopPiece")
 	angle := RandFloatRange(0.0, 2.0*math.Pi)
 	dir := Vec2{
 		X: math.Cos(angle),
@@ -609,7 +623,7 @@ func (w *World) autoSplit() {
 				continue // not at limit yet
 			}
 
-			if int64(len(p.CellIDs)) >= SplitMaxCells {
+			if uint64(len(p.CellIDs)) >= SplitMaxCells {
 				cell.Mass = MaxCellMass // cap it, can't split
 				continue
 			}
@@ -653,7 +667,7 @@ func (w *World) autoSplit() {
  */
 func (w *World) feedViruses() {
 	toRemove := map[uuid.UUID]bool{}
-	//log.Printf("13")
+	//log.Printf("feedViruses")
 
 	for _, eject := range w.Ejects {
 		if toRemove[eject.ID] {
@@ -661,8 +675,8 @@ func (w *World) feedViruses() {
 		}
 
 		neighbors := w.virusGrid.GetNeighbors(eject.Position, eject.Radius())
-		for _, v := range neighbors {
-			virus, ok := w.Viruses[v.ID]
+		for _, virus := range neighbors {
+			_, ok := w.Viruses[virus.ID]
 			if !ok {
 				continue // virus doesn't exist
 			}
@@ -704,7 +718,7 @@ func (w *World) feedViruses() {
  *
  */
 func (w *World) shootVirus(pv *Virus, dir Vec2) {
-	//log.Printf("15")
+	//log.Printf("shootVirus")
 	newVirus := Virus{
 		ID: uuid.New(),
 
@@ -730,8 +744,8 @@ func (w *World) shootVirus(pv *Virus, dir Vec2) {
  *
  */
 func (w *World) spawnPellets() {
-	//log.Printf("16")
-	if int64(len(w.Pellets)) >= MaxPellets {
+	//log.Printf("spawnPellets")
+	if uint64(len(w.Pellets)) >= MaxPellets {
 		return // we have enough already
 	}
 
@@ -762,8 +776,8 @@ func (w *World) spawnPellets() {
  *
  */
 func (w *World) spawnViruses() {
-	//log.Printf("17")
-	currNumViruses := int64(len(w.Viruses))
+	//log.Printf("spawnViruses")
+	currNumViruses := uint64(len(w.Viruses))
 	if currNumViruses >= MinViruses {
 		return // don't spawn more naturally
 	}
@@ -795,7 +809,7 @@ func (w *World) spawnViruses() {
  *
  */
 func (w *World) removePlayer(playerID uuid.UUID) {
-	//log.Printf("18")
+	//log.Printf("removePlayer")
 	p, ok := w.Players[playerID]
 	if !ok {
 		return // player already removed
@@ -820,7 +834,7 @@ func (w *World) removePlayer(playerID uuid.UUID) {
  *
  */
 func (w *World) removeCell(cellID uuid.UUID) {
-	//log.Printf("19")
+	//log.Printf("removeCell")
 	c, ok := w.Cells[cellID]
 	if !ok {
 		return // cell already removed
@@ -850,7 +864,7 @@ func (w *World) removeCell(cellID uuid.UUID) {
  *
  */
 func (w *World) broadcastState() {
-	//log.Printf("20")
+	//log.Printf("broadcastState")
 	for _, p := range w.Players {
 		if p.IsBot {
 			continue // don't broadcast to bots
@@ -925,7 +939,7 @@ func (w *World) broadcastLeaderboard() {
 		leaderboard.Entries = append(leaderboard.Entries, LeaderboardEntry{
 			ID:    id,
 			Name:  p.Name,
-			Score: uint32(w.playerTotalMass(p)),
+			Score: uint64(w.playerTotalMass(p)),
 		})
 	}
 
@@ -933,7 +947,7 @@ func (w *World) broadcastLeaderboard() {
 		return leaderboard.Entries[i].Score > leaderboard.Entries[j].Score
 	})
 
-	cutoff := min(int64(len(leaderboard.Entries)), LeaderboardSize)
+	cutoff := min(uint64(len(leaderboard.Entries)), LeaderboardSize)
 	leaderboard.Entries = leaderboard.Entries[:cutoff]
 
 	for id, p := range w.Players {
@@ -956,7 +970,7 @@ func (w *World) broadcastLeaderboard() {
  *
  */
 func (w *World) playerCenter(player *Player) (Vec2, float64) {
-	//log.Printf("21")
+	//log.Printf("playerCenter")
 	if len(player.CellIDs) == 0 {
 		return Vec2{}, 0.0
 	}
@@ -1001,9 +1015,9 @@ func (w *World) playerTotalMass(player *Player) float64 {
  *
  */
 func (w *World) maintainBots() {
-	//log.Printf("22")
-	curr := int64(len(w.Players))
-	for range TargetPlayers - curr {
+	//log.Printf("maintainBots")
+	curr := len(w.Players)
+	for range int(TargetPlayers) - curr {
 		w.spawnBot()
 	}
 }

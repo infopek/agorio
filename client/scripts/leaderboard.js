@@ -10,7 +10,6 @@ export function updateLeaderboard(entries, myId) {
 
     let html = '<h3>Leaderboard</h3><ol>';
     for (const entry of entries) {
-        console.log(entry);
         const cls = entry.id === myId ? ' class="me"' : ''; // highlight ourselves
         html += `<li${cls}>${entry.name}: ${entry.score}</li>`;
     }

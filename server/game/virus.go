@@ -11,7 +11,7 @@ type Virus struct {
 	Momentum Vec2 // for shooting virus
 
 	Mass     float64
-	FedCount int64
+	FedCount uint64
 	Color    [3]uint8
 }
 

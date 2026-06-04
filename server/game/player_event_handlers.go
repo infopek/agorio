@@ -136,7 +136,7 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 	})
 
 	for _, cellID := range cellIDs {
-		if int64(len(p.CellIDs)) >= SplitMaxCells {
+		if uint64(len(p.CellIDs)) >= SplitMaxCells {
 			break // too many cells
 		}
 
@@ -215,7 +215,7 @@ func sanitizeName(name string) string {
 	if len(name) == 0 {
 		return DefaultNames[RandIntRange(0, int64(len(DefaultNames)))]
 	}
-	if int64(len(name)) > MaxNameLength {
+	if uint64(len(name)) > MaxNameLength {
 		name = name[:MaxNameLength]
 	}
 
