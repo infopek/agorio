@@ -1,12 +1,36 @@
 import { Vec2 } from './vec2.js';
 import { Camera } from './camera.js';
+import { Config } from './config.js';
 
-const GRID_SIZE = 30;
+const OUTLINE_DARKEN_AMOUNT = 0.3;
+const SHAPE_OUTLINE_WIDTH = 3;
+const GRID_LINE_WIDTH = 0.5;
 
-const WORLD_WIDTH = 15000;
-const WORLD_HEIGHT = 15000;
+const VIRUS_SPIKE_COUNT = 30;
+const VIRUS_SPIKE_DEPTH_SCALE = 0.04;
+const VIRUS_ROTATION_DIRECTION = 1; // clockwise
+const VIRUS_ROTATION_SPEED = 0.3;
+const VIRUS_MASS_ROTATION_FACTOR = 0.7;
+const VIRUS_COUNTER_FONT_SCALE = 0.6;
+const VIRUS_COUNTER_OUTLINE_WIDTH = 2;
 
-const VIRUS_FEED_TO_SHOOT = 7;
+const CELL_TEXT_Y_OFFSET_SCALE = 0.35;
+const CELL_NAME_MIN_FONT_SIZE = 13;
+const CELL_NAME_RADIUS_SCALE = 0.38;
+const CELL_NAME_LENGTH_TARGET = 7;
+const CELL_TEXT_OUTLINE_SCALE = 0.15;
+const CELL_MASS_MIN_FONT_SIZE = 8;
+const CELL_MASS_RADIUS_SCALE = 0.2;
+
+const DEBUG_POSITION_FONT_SIZE = 20;
+const DEBUG_POSITION_X = 10;
+const DEBUG_POSITION_Y = 20;
+
+const WOBBLY_CIRCLE_POINT_COUNT = 60;
+const WOBBLY_CIRCLE_WAVE_COUNT = 13;
+const WOBBLY_CIRCLE_SIN_SPEED = 6;
+const WOBBLY_CIRCLE_COS_SPEED = 5;
+const WOBBLY_CIRCLE_AMPLITUDE = 0.0015;
 
 /** render
  *
@@ -21,6 +45,7 @@ export function render(snapshot, camera, canvas) {
     if (ctx === null) {
         return;
     }
+    const time = performance.now() / 1000.0;
 
     clear(ctx, canvas);
 
@@ -43,7 +68,7 @@ export function render(snapshot, camera, canvas) {
         const screenCoords = camera.worldToScreen(new Vec2(eject.x, eject.y), canvas);
         const screenRadius = camera.worldToScreenRadius(eject.radius);
 
-        drawEject(ctx, screenCoords.x, screenCoords.y, screenRadius, eject.color);
+        drawEject(ctx, screenCoords.x, screenCoords.y, screenRadius, eject.color, time);
     }
 
     // Viruses
@@ -53,11 +78,11 @@ export function render(snapshot, camera, canvas) {
         const screenRadius = camera.worldToScreenRadius(virus.radius);
 
         drawVirus(ctx, screenCoords.x, screenCoords.y, screenRadius, virus.mass, virus.color,
-            darken(virus.color, 0.3), performance.now() / 1000.0);
+            darken(virus.color, OUTLINE_DARKEN_AMOUNT), time);
 
-        const remaining = VIRUS_FEED_TO_SHOOT - virus.fed_count;
-        if (remaining < VIRUS_FEED_TO_SHOOT) {
-            drawOutlinedText(ctx, String(remaining), screenCoords.x, screenCoords.y, `bold ${screenRadius * 0.6}px sans-serif`, 2);
+        const remaining = Config.virusFeedToShoot - virus.fed_count;
+        if (remaining < Config.virusFeedToShoot) {
+            drawOutlinedText(ctx, String(remaining), screenCoords.x, screenCoords.y, `bold ${screenRadius * VIRUS_COUNTER_FONT_SCALE}px sans-serif`, VIRUS_COUNTER_OUTLINE_WIDTH);
         }
     }
 
@@ -66,9 +91,9 @@ export function render(snapshot, camera, canvas) {
         const cell = snapshot.cells[i];
         const screenCoords = camera.worldToScreen(new Vec2(cell.x, cell.y), canvas);
         const screenRadius = camera.worldToScreenRadius(cell.radius);
-        const offset = screenRadius * 0.35;
+        const offset = screenRadius * CELL_TEXT_Y_OFFSET_SCALE;
 
-        drawCell(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.color);
+        drawCell(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.color, time);
 
         displayName(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.owner_name, camera.zoom);
         displayMass(ctx, screenCoords.x, screenCoords.y + offset, screenRadius, cell.mass);
@@ -98,11 +123,11 @@ function clear(ctx, canvas) {
  */
 function drawWorldBorder(ctx, camera, canvas) {
     const topLeft = camera.worldToScreen(new Vec2(0, 0), canvas);
-    const bottomRight = camera.worldToScreen(new Vec2(WORLD_WIDTH, WORLD_HEIGHT), canvas);
+    const bottomRight = camera.worldToScreen(new Vec2(Config.worldWidth, Config.worldHeight), canvas);
 
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
         ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = SHAPE_OUTLINE_WIDTH;
         ctx.strokeRect(
             topLeft.x,
             topLeft.y,
@@ -128,19 +153,19 @@ function drawGrid(ctx, camera, canvas) {
     const worldBottom = camera.position.y + canvas.height / 2 / camera.zoom;
 
     // Set drawing cursor to top left
-    const startX = Math.floor(worldLeft / GRID_SIZE) * GRID_SIZE;
-    const startY = Math.floor(worldTop / GRID_SIZE) * GRID_SIZE;
+    const startX = Math.floor(worldLeft / Config.gridSize) * Config.gridSize;
+    const startY = Math.floor(worldTop / Config.gridSize) * Config.gridSize;
 
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
         ctx.strokeStyle = '#bbbbbb';
-        ctx.lineWidth = 0.5;
+        ctx.lineWidth = GRID_LINE_WIDTH;
         ctx.beginPath();
-        for (let x = startX; x <= worldRight; x += GRID_SIZE) {
+        for (let x = startX; x <= worldRight; x += Config.gridSize) {
             const sx = (x - camera.position.x) * camera.zoom + canvas.width / 2;
             ctx.moveTo(sx, 0);
             ctx.lineTo(sx, canvas.height);
         }
-        for (let y = startY; y <= worldBottom; y += GRID_SIZE) {
+        for (let y = startY; y <= worldBottom; y += Config.gridSize) {
             const sy = (y - camera.position.y) * camera.zoom + canvas.height / 2;
             ctx.moveTo(0, sy);
             ctx.lineTo(canvas.width, sy);
@@ -185,17 +210,14 @@ function drawPellet(ctx, x, y, r, color) {
  */
 function drawVirus(ctx, x, y, r, mass, color, outlineColor, time) {
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
-        const spikes = 30;
-        const spikeDepth = r * 0.04;
-        const rotationDirection = 1; // clockwise
-        const rotationSpeed = 0.3;
-        const massRotationFactor = 0.7;
+        const spikeDepth = r * VIRUS_SPIKE_DEPTH_SCALE;
 
-        const rotation = time * rotationSpeed * rotationDirection + mass * massRotationFactor;
+        const rotation = time * VIRUS_ROTATION_SPEED * VIRUS_ROTATION_DIRECTION
+            + mass * VIRUS_MASS_ROTATION_FACTOR;
 
         ctx.beginPath();
-        for (let i = 0; i <= spikes * 2; i++) {
-            const angle = (i / (spikes * 2)) * Math.PI * 2 + rotation;
+        for (let i = 0; i <= VIRUS_SPIKE_COUNT * 2; i++) {
+            const angle = (i / (VIRUS_SPIKE_COUNT * 2)) * Math.PI * 2 + rotation;
             const isSpike = i % 2 == 0;
             const dist = isSpike ? r + spikeDepth : r - spikeDepth;
             const px = x + Math.cos(angle) * dist;
@@ -213,7 +235,7 @@ function drawVirus(ctx, x, y, r, mass, color, outlineColor, time) {
         ctx.fill();
 
         ctx.strokeStyle = outlineColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = SHAPE_OUTLINE_WIDTH;
         ctx.stroke();
 
     });
@@ -228,9 +250,10 @@ function drawVirus(ctx, x, y, r, mass, color, outlineColor, time) {
  * @param {number} y
  * @param {number} r
  * @param {string} color
+ * @param {number} time
  */
-function drawCell(ctx, x, y, r, color) {
-    drawWobblyCircle(ctx, x, y, r, color, darken(color, 0.3), performance.now() / 1000.0)
+function drawCell(ctx, x, y, r, color, time) {
+    drawWobblyCircle(ctx, x, y, r, color, darken(color, OUTLINE_DARKEN_AMOUNT), time)
 }
 
 /** drawEject
@@ -242,9 +265,10 @@ function drawCell(ctx, x, y, r, color) {
  * @param {number} y
  * @param {number} r
  * @param {string} color
+ * @param {number} time
  */
-function drawEject(ctx, x, y, r, color) {
-    drawWobblyCircle(ctx, x, y, r, color, darken(color, 0.3), performance.now() / 1000.0)
+function drawEject(ctx, x, y, r, color, time) {
+    drawWobblyCircle(ctx, x, y, r, color, darken(color, OUTLINE_DARKEN_AMOUNT), time)
 }
 
 
@@ -261,8 +285,8 @@ function drawEject(ctx, x, y, r, color) {
 function displayWorldPosition(ctx, camera) {
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
         ctx.fillStyle = 'black';
-        ctx.font = '20 monospace';
-        ctx.fillText(`x: ${Math.round(camera.position.x)} y: ${Math.round(camera.position.y)}`, 10, 20);
+        ctx.font = `${DEBUG_POSITION_FONT_SIZE}px monospace`;
+        ctx.fillText(`x: ${Math.round(camera.position.x)} y: ${Math.round(camera.position.y)}`, DEBUG_POSITION_X, DEBUG_POSITION_Y);
     });
 }
 
@@ -278,10 +302,10 @@ function displayWorldPosition(ctx, camera) {
  * @param {number} zoom
  */
 function displayName(ctx, x, y, r, name, zoom) {
-    const baseSize = Math.max(13, r * 0.38);
-    const scale = Math.min(1.0, 7.0 / name.length);
+    const baseSize = Math.max(CELL_NAME_MIN_FONT_SIZE, r * CELL_NAME_RADIUS_SCALE);
+    const scale = Math.min(1.0, CELL_NAME_LENGTH_TARGET / name.length);
     const size = baseSize * scale;
-    drawOutlinedText(ctx, name, x, y, `bold ${size}px sans-serif`, Math.max(1.0, size * 0.15));
+    drawOutlinedText(ctx, name, x, y, `bold ${size}px sans-serif`, Math.max(1.0, size * CELL_TEXT_OUTLINE_SCALE));
 }
 
 /** displayMass
@@ -295,8 +319,8 @@ function displayName(ctx, x, y, r, name, zoom) {
  * @param {number} mass
  */
 function displayMass(ctx, x, y, r, mass) {
-    const size = Math.max(8, r * 0.2);
-    drawOutlinedText(ctx, String(Math.round(mass)), x, y, `${size}px sans-serif`, Math.max(1.0, size * 0.15));
+    const size = Math.max(CELL_MASS_MIN_FONT_SIZE, r * CELL_MASS_RADIUS_SCALE);
+    drawOutlinedText(ctx, String(Math.round(mass)), x, y, `${size}px sans-serif`, Math.max(1.0, size * CELL_TEXT_OUTLINE_SCALE));
 }
 
 /** === UTILS === **/
@@ -369,13 +393,11 @@ function drawOutlinedText(ctx, text, x, y, font, lineWidth) {
  */
 function drawWobblyCircle(ctx, x, y, r, color, outlineColor, time) {
     draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
-        const points = 60;
-
         ctx.beginPath();
-        for (let i = 0; i <= points; i++) {
-            const angle = (i / points) * Math.PI * 2.0;
-            const wobble = Math.sin(angle * 13.0 + time * 6.0) * r * 0.0015
-                + Math.cos(angle * 13.0 + time * 5.0) * r * 0.0015;
+        for (let i = 0; i <= WOBBLY_CIRCLE_POINT_COUNT; i++) {
+            const angle = (i / WOBBLY_CIRCLE_POINT_COUNT) * Math.PI * 2.0;
+            const wobble = Math.sin(angle * WOBBLY_CIRCLE_WAVE_COUNT + time * WOBBLY_CIRCLE_SIN_SPEED) * r * WOBBLY_CIRCLE_AMPLITUDE
+                + Math.cos(angle * WOBBLY_CIRCLE_WAVE_COUNT + time * WOBBLY_CIRCLE_COS_SPEED) * r * WOBBLY_CIRCLE_AMPLITUDE;
             const px = x + Math.cos(angle) * (r + wobble);
             const py = y + Math.sin(angle) * (r + wobble);
 
@@ -390,7 +412,7 @@ function drawWobblyCircle(ctx, x, y, r, color, outlineColor, time) {
         ctx.fillStyle = color;
         ctx.fill();
         ctx.strokeStyle = outlineColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = SHAPE_OUTLINE_WIDTH;
         ctx.stroke();
     });
 }

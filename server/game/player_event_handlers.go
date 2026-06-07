@@ -85,6 +85,10 @@ func (w *World) handlePlayerDisconnect(playerID uuid.UUID) {
  *  and assigns the session's id to it, also creates a starter cell
  */
 func (w *World) handlePlayerConnect(playerID uuid.UUID, name string, outputChan chan<- ServerEvent) {
+	if _, ok := w.Players[playerID]; ok {
+		return // already joined
+	}
+
 	cellID := uuid.New()
 	name = sanitizeName(name)
 
@@ -152,7 +156,7 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 			ID:      uuid.New(),
 			OwnerID: playerID,
 
-			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius() / 2.0)),
+			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius() / 3.0)),
 			Direction: cell.Direction,
 			Momentum:  cell.Direction.Scale(SplitMomentumFactor + math.Sqrt(cell.Radius())*SplitMomentumRadiusFactor),
 
@@ -215,8 +219,10 @@ func sanitizeName(name string) string {
 	if len(name) == 0 {
 		return DefaultNames[RandIntRange(0, int64(len(DefaultNames)))]
 	}
-	if uint64(len(name)) > MaxNameLength {
-		name = name[:MaxNameLength]
+
+	runes := []rune(name)
+	if uint64(len(runes)) > MaxNameLength {
+		name = string(runes[:MaxNameLength])
 	}
 
 	return name

@@ -1,8 +1,6 @@
 import { Vec2 } from './vec2.js';
 import { clamp } from './utils.js';
-
-const MIN_ZOOM_OVERRIDE = 0.8;
-const MAX_ZOOM_OVERRIDE = 1.2;
+import { Config } from './config.js';
 
 export class Camera {
     constructor() {
@@ -30,20 +28,22 @@ export class Camera {
             sumMass += myCells[i].mass;
         }
 
-        const targetZoom = canvas.height / (200.0 + Math.sqrt(sumMass) * 20.0) * this.zoomOverride;
+        const targetZoom = canvas.height
+            / (Config.cameraBaseViewSize + Math.sqrt(sumMass) * Config.cameraMassZoomFactor)
+            * this.zoomOverride;
         const targetX = sumX / sumMass;
         const targetY = sumY / sumMass;
 
-        this.position.x += (targetX - this.position.x) * 0.1;
-        this.position.y += (targetY - this.position.y) * 0.1;
-        this.zoom += (targetZoom - this.zoom) * 0.05;
+        this.position.x += (targetX - this.position.x) * Config.cameraPositionSmoothing;
+        this.position.y += (targetY - this.position.y) * Config.cameraPositionSmoothing;
+        this.zoom += (targetZoom - this.zoom) * Config.cameraZoomSmoothing;
     }
 
     /**
      * @param {number} scale
      */
     zoomBy(scale) {
-        this.zoomOverride = clamp(this.zoomOverride * scale, MIN_ZOOM_OVERRIDE, MAX_ZOOM_OVERRIDE);
+        this.zoomOverride = clamp(this.zoomOverride * scale, Config.minZoomOverride, Config.maxZoomOverride);
     }
 
     /**

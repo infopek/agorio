@@ -1,3 +1,5 @@
+import { Config } from './config.js';
+
 /** @type {Snapshot | null} snapshot */
 let prev = null;
 
@@ -14,8 +16,6 @@ let curr = null;
 
 let lastTickTime = 0;
 
-const tickRate = 20;
-
 /**
  * @param {Snapshot} snapshot
  */
@@ -31,7 +31,7 @@ export function getInterpolated() {
     }
 
     const t = Math.min(
-        (performance.now() - lastTickTime) / (1000 / tickRate),
+        (performance.now() - lastTickTime) / (1000 / Config.tickRate),
         1
     );
     return interpolateState(prev, curr, t);

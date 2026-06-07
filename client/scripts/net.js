@@ -1,27 +1,42 @@
 import { pushSnapshot } from './interpolation.js';
-import { toggleMenu } from './input.js';
-import { updateLeaderboard } from './leaderboard.js';
+import { updateLeaderboard, clearLeaderboard } from './leaderboard.js';
+import { ClientStatus, getState, setState } from './state.js';
+import { Config } from './config.js';
 
 /** @type {WebSocket | null} */
 let ws = null;
-let alive = false;
 
 export function connect() {
-    ws = new WebSocket("ws://localhost:8080/ws");
-    ws.onopen = () => console.log("connected");
+    ws = new WebSocket(Config.websocketUrl);
+
+    ws.onopen = () => {
+        clearLeaderboard();
+        setState({ status: ClientStatus.MENU, message: '' });
+    };
+
+    ws.onclose = () => {
+        clearLeaderboard();
+        setState({ status: ClientStatus.DISCONNECTED, message: 'Disconnected' });
+    };
+
     ws.onmessage = (msg) => {
         const data = JSON.parse(msg.data);
         if (data.t === 'snapshot') {
             pushSnapshot(data);
+
+            if (getState().status === ClientStatus.CONNECTING) {
+                setState({ status: ClientStatus.PLAYING, message: '' });
+            }
         } else if (data.t === 'death') {
-            alive = false;
-            toggleMenu(true);   // show menu
+            setState({ status: ClientStatus.DEAD, message: 'You died' });
         } else if (data.t === 'leaderboard') {
-            updateLeaderboard(data.entries, data.me);
+            if (getState().status !== ClientStatus.MENU
+                && getState().status !== ClientStatus.DISCONNECTED) {
+                updateLeaderboard(data.entries, data.me);
+            }
         }
     }
     ws.onerror = (e) => console.error('error: ', e);
-    ws.onclose = (e) => console.error('closed: ', e.code, e.reason);
 }
 
 /** send
@@ -31,7 +46,9 @@ export function connect() {
 function send(obj) {
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(obj));
+        return true;
     }
+    return false;
 }
 
 /**
@@ -39,11 +56,10 @@ function send(obj) {
  * @param {string} name
  */
 export function sendJoin(name) {
-    send({
+    return send({
         t: 'join',
         name: name
     });
-    alive = true;
 }
 
 /** sendMove
@@ -52,7 +68,7 @@ export function sendJoin(name) {
  * @param {number} y
  */
 export function sendMove(x, y) {
-    send({
+    return send({
         t: 'move',
         x: x,
         y: y
@@ -63,7 +79,7 @@ export function sendMove(x, y) {
  *
  */
 export function sendSplit() {
-    send({
+    return send({
         t: 'split'
     });
 }
@@ -72,7 +88,7 @@ export function sendSplit() {
  *
  */
 export function sendFeed() {
-    send({
+    return send({
         t: 'feed',
     });
 }

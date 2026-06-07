@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/infopek/agorio/server/game"
 	"github.com/infopek/agorio/server/net"
-)
-
-const (
-	port int = 8080
 )
 
 func main() {
@@ -22,7 +19,14 @@ func main() {
 
 	go world.Tick()
 
-	log.Printf("Websocket server started on port %d", port)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	srv := &http.Server{
+		Addr: fmt.Sprintf(":%d", game.Port),
+
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	log.Printf("Websocket server started on port %d", game.Port)
+	err := srv.ListenAndServe()
 	log.Printf("Error: %v\n", err)
 }

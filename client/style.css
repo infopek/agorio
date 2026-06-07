@@ -42,20 +42,40 @@ canvas {
 
 #leaderboard h3 {
     margin: 0 0 6px;
-    font-size: 14px;
+    font-size: 24px;
     text-align: center;
 }
 
 #leaderboard ol {
     margin: 0;
-    padding: 0 0 0 20px;
+    padding: 0;
+    list-style: none;
 }
 
 #leaderboard li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: baseline;
     padding: 2px 0;
+}
+
+.leaderboard-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leaderboard-score {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
 }
 
 #leaderboard li.me {
     font-weight: bold;
     color: #ffcc00;
+}
+
+#leaderboard:empty {
+    display: none;
 }

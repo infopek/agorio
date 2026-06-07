@@ -1,6 +1,24 @@
 package game
 
+import (
+	"time"
+)
+
 const (
+	// Net
+	Port uint64 = 8080
+
+	MaxConnections        uint64 = 3
+	MaxPlayerMessageBytes int64  = 512
+
+	PongWait   = 60 * time.Second
+	PingPeriod = (PongWait * 9) / 10
+	WriteWait  = 10 * time.Second
+
+	ActionCooldown time.Duration = 30 * time.Millisecond
+	MoveCooldown   time.Duration = time.Second / 60
+
+	// Game
 	WorldWidth  float64 = 15000.0
 	WorldHeight float64 = 15000.0
 
@@ -15,7 +33,7 @@ const (
 
 	// Player
 	MaxNameLength uint64 = 16
-	TargetPlayers uint64 = 50
+	MaxPlayers    uint64 = 30 // bots + players
 
 	BaseSpeed     float64 = 8.0 // world units per tick at StartMass
 	MinSpeed      float64 = 1.5
@@ -80,6 +98,12 @@ const (
 )
 
 var (
+	// Net
+	AllowedOrigins = [...]string{
+		"http://localhost:8080",
+		"http://127.0.0.1:8080",
+	}
+
 	// Colors
 	DefaultColors = [...][3]uint8{
 		{255, 70, 70},   // red

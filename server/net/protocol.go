@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/infopek/agorio/server/game"
 )
@@ -16,8 +17,8 @@ type CellDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius uint64  `json:"radius"`
-	Mass   uint64  `json:"mass"`
+	Radius uint64 `json:"radius"`
+	Mass   uint64 `json:"mass"`
 	Color  string `json:"color"`
 }
 
@@ -25,8 +26,8 @@ type PelletDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius uint64  `json:"radius"`
-	Mass   uint64  `json:"mass"`
+	Radius uint64 `json:"radius"`
+	Mass   uint64 `json:"mass"`
 	Color  string `json:"color"`
 }
 
@@ -36,8 +37,8 @@ type EjectDTO struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 
-	Radius uint64  `json:"radius"`
-	Mass   uint64  `json:"mass"`
+	Radius uint64 `json:"radius"`
+	Mass   uint64 `json:"mass"`
 	Color  string `json:"color"`
 }
 
@@ -198,23 +199,37 @@ func toJSON(msg game.ServerEvent) ([]byte, error) {
 }
 
 func parsePlayerMessage(msg []byte) (game.PlayerEvent, error) {
-	var raw map[string]any
-	err := json.Unmarshal(msg, &raw)
-	if err != nil {
+	var envelope struct {
+		Type string `json:"t"`
+	}
+	if err := json.Unmarshal(msg, &envelope); err != nil {
 		return nil, err
 	}
 
-	switch raw["t"] {
+	switch envelope.Type {
 	case "join":
-		return game.PlayerJoinEvent{
-			Name: raw["name"].(string),
-		}, nil
+		var dto struct {
+			Type string `json:"t"`
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(msg, &dto); err != nil {
+			return nil, err
+		}
+		return game.PlayerJoinEvent{Name: dto.Name}, nil
 	case "move":
+		var dto struct {
+			Type string  `json:"t"`
+			X    float64 `json:"x"`
+			Y    float64 `json:"y"`
+		}
+		if err := json.Unmarshal(msg, &dto); err != nil {
+			return nil, err
+		}
+		if math.IsNaN(dto.X) || math.IsNaN(dto.Y) || math.IsInf(dto.X, 0) || math.IsInf(dto.Y, 0) {
+			return nil, errors.New("invalid move coords")
+		}
 		return game.PlayerMoveEvent{
-			Target: game.Vec2{
-				X: raw["x"].(float64),
-				Y: raw["y"].(float64),
-			},
+			Target: game.Vec2{X: dto.X, Y: dto.Y},
 		}, nil
 	case "split":
 		return game.PlayerSplitEvent{}, nil

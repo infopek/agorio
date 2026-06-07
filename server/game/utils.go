@@ -23,6 +23,18 @@ func Clamp(val, lo, hi float64) float64 {
 	return val
 }
 
+/** sendServerEvent
+ *
+ * Sends an event down the given channel in a non-blocking fashion
+ *
+ */
+func sendServerEvent(ch chan<- ServerEvent, event ServerEvent) {
+	select {
+	case ch <- event:
+	default:
+	}
+}
+
 /** Radius
  *
  * Universal radius calculation for every physical entity

@@ -822,7 +822,7 @@ func (w *World) removePlayer(playerID uuid.UUID) {
 
 	// Notify player of his death
 	if !p.IsBot {
-		p.OutputChan <- DeathEvent{}
+		sendServerEvent(p.OutputChan, DeathEvent{})
 	}
 	delete(w.Players, playerID)
 }
@@ -922,7 +922,7 @@ func (w *World) broadcastState() {
 			Tick:    w.tick,
 		}
 
-		p.OutputChan <- snapshot
+		sendServerEvent(p.OutputChan, snapshot)
 	}
 }
 
@@ -957,7 +957,7 @@ func (w *World) broadcastLeaderboard() {
 
 		leaderboard.Me = id
 
-		p.OutputChan <- leaderboard
+		sendServerEvent(p.OutputChan, leaderboard)
 	}
 }
 
@@ -1017,7 +1017,7 @@ func (w *World) playerTotalMass(player *Player) float64 {
 func (w *World) maintainBots() {
 	//log.Printf("maintainBots")
 	curr := len(w.Players)
-	for range int(TargetPlayers) - curr {
+	for range int(MaxPlayers) - curr {
 		w.spawnBot()
 	}
 }
