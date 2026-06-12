@@ -15,8 +15,11 @@ canvas.height = window.innerHeight;
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-})
-
+});
+const ctx = canvas.getContext('2d');
+if (ctx === null) {
+    throw new Error('2D canvas context is not available');
+}
 
 connect();
 
@@ -29,10 +32,9 @@ function gameLoop() {
     if (snapshot) {
         sendMouseUpdate(canvas, camera);
 
-        snapshot.cells.sort((a, b) => a.radius - b.radius); // consistent rendering, larger is in foreground
         camera.update(snapshot, canvas);
 
-        render(snapshot, camera, canvas);
+        render(snapshot, camera, canvas, ctx);
     }
     requestAnimationFrame(gameLoop);
 }

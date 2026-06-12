@@ -18,13 +18,17 @@ const CELL_TEXT_Y_OFFSET_SCALE = 0.35;
 const CELL_NAME_MIN_FONT_SIZE = 13;
 const CELL_NAME_RADIUS_SCALE = 0.38;
 const CELL_NAME_LENGTH_TARGET = 7;
-const CELL_TEXT_OUTLINE_SCALE = 0.15;
+const CELL_TEXT_OUTLINE_SCALE = 0.11;
 const CELL_MASS_MIN_FONT_SIZE = 8;
 const CELL_MASS_RADIUS_SCALE = 0.2;
 
-const DEBUG_POSITION_FONT_SIZE = 20;
-const DEBUG_POSITION_X = 10;
-const DEBUG_POSITION_Y = 20;
+const TEXT_FONT_FAMILY = 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+const DEBUG_POSITION_FONT_SIZE = 13;
+const DEBUG_POSITION_X = 12;
+const DEBUG_POSITION_Y = 12;
+const DEBUG_POSITION_PADDING_X = 10;
+const DEBUG_POSITION_PADDING_Y = 7;
+const DEBUG_POSITION_RADIUS = 6;
 
 const WOBBLY_CIRCLE_POINT_COUNT = 60;
 const WOBBLY_CIRCLE_WAVE_COUNT = 13;
@@ -39,12 +43,9 @@ const WOBBLY_CIRCLE_AMPLITUDE = 0.0015;
  * @param {import('./interpolation.js').Snapshot} snapshot
  * @param {import('./camera.js').Camera} camera
  * @param {HTMLCanvasElement} canvas
+ * @param {CanvasRenderingContext2D} ctx
  */
-export function render(snapshot, camera, canvas) {
-    const ctx = canvas.getContext('2d');
-    if (ctx === null) {
-        return;
-    }
+export function render(snapshot, camera, canvas, ctx) {
     const time = performance.now() / 1000.0;
 
     clear(ctx, canvas);
@@ -87,15 +88,16 @@ export function render(snapshot, camera, canvas) {
     }
 
     // Players
-    for (let i = 0; i < snapshot.cells.length; i++) {
-        const cell = snapshot.cells[i];
+    const cells = snapshot.cells.sort((a, b) => a.radius - b.radius); // consistent rendering, larger is in foreground
+    for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
         const screenCoords = camera.worldToScreen(new Vec2(cell.x, cell.y), canvas);
         const screenRadius = camera.worldToScreenRadius(cell.radius);
         const offset = screenRadius * CELL_TEXT_Y_OFFSET_SCALE;
 
         drawCell(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.color, time);
 
-        displayName(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.owner_name, camera.zoom);
+        displayName(ctx, screenCoords.x, screenCoords.y, screenRadius, cell.owner_name);
         displayMass(ctx, screenCoords.x, screenCoords.y + offset, screenRadius, cell.mass);
     }
 
@@ -125,7 +127,7 @@ function drawWorldBorder(ctx, camera, canvas) {
     const topLeft = camera.worldToScreen(new Vec2(0, 0), canvas);
     const bottomRight = camera.worldToScreen(new Vec2(Config.worldWidth, Config.worldHeight), canvas);
 
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+    draw(ctx, ctx => {
         ctx.strokeStyle = '#ff0000';
         ctx.lineWidth = SHAPE_OUTLINE_WIDTH;
         ctx.strokeRect(
@@ -156,7 +158,7 @@ function drawGrid(ctx, camera, canvas) {
     const startX = Math.floor(worldLeft / Config.gridSize) * Config.gridSize;
     const startY = Math.floor(worldTop / Config.gridSize) * Config.gridSize;
 
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+    draw(ctx, ctx => {
         ctx.strokeStyle = '#bbbbbb';
         ctx.lineWidth = GRID_LINE_WIDTH;
         ctx.beginPath();
@@ -187,7 +189,7 @@ function drawGrid(ctx, camera, canvas) {
  * @param {string} color
  */
 function drawPellet(ctx, x, y, r, color) {
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+    draw(ctx, ctx => {
         ctx.beginPath();
         ctx.arc(x, y, r, 0, 2 * Math.PI);
         ctx.fillStyle = color;
@@ -209,7 +211,7 @@ function drawPellet(ctx, x, y, r, color) {
  * @param {number} time
  */
 function drawVirus(ctx, x, y, r, mass, color, outlineColor, time) {
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+    draw(ctx, ctx => {
         const spikeDepth = r * VIRUS_SPIKE_DEPTH_SCALE;
 
         const rotation = time * VIRUS_ROTATION_SPEED * VIRUS_ROTATION_DIRECTION
@@ -283,10 +285,23 @@ function drawEject(ctx, x, y, r, color, time) {
  * @param {Camera} camera
  */
 function displayWorldPosition(ctx, camera) {
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
-        ctx.fillStyle = 'black';
-        ctx.font = `${DEBUG_POSITION_FONT_SIZE}px monospace`;
-        ctx.fillText(`x: ${Math.round(camera.position.x)} y: ${Math.round(camera.position.y)}`, DEBUG_POSITION_X, DEBUG_POSITION_Y);
+    draw(ctx, ctx => {
+        const text = `x ${Math.round(camera.position.x)}   y ${Math.round(camera.position.y)}`;
+        ctx.font = `600 ${DEBUG_POSITION_FONT_SIZE}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+        const width = Math.ceil(ctx.measureText(text).width + DEBUG_POSITION_PADDING_X * 2);
+        const height = DEBUG_POSITION_FONT_SIZE + DEBUG_POSITION_PADDING_Y * 2;
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+        ctx.strokeStyle = 'rgba(23, 32, 51, 0.12)';
+        ctx.lineWidth = 1;
+        roundedRect(ctx, DEBUG_POSITION_X, DEBUG_POSITION_Y, width, height, DEBUG_POSITION_RADIUS);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(23, 32, 51, 0.72)';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, DEBUG_POSITION_X + DEBUG_POSITION_PADDING_X, DEBUG_POSITION_Y + height / 2);
     });
 }
 
@@ -299,13 +314,12 @@ function displayWorldPosition(ctx, camera) {
  * @param {number} y
  * @param {number} r
  * @param {string} name
- * @param {number} zoom
  */
-function displayName(ctx, x, y, r, name, zoom) {
+function displayName(ctx, x, y, r, name) {
     const baseSize = Math.max(CELL_NAME_MIN_FONT_SIZE, r * CELL_NAME_RADIUS_SCALE);
-    const scale = Math.min(1.0, CELL_NAME_LENGTH_TARGET / name.length);
+    const scale = name.length === 0 ? 1.0 : Math.min(1.0, CELL_NAME_LENGTH_TARGET / name.length);
     const size = baseSize * scale;
-    drawOutlinedText(ctx, name, x, y, `bold ${size}px sans-serif`, Math.max(1.0, size * CELL_TEXT_OUTLINE_SCALE));
+    drawOutlinedText(ctx, name, x, y, `800 ${size}px ${TEXT_FONT_FAMILY}`, Math.max(1.0, size * CELL_TEXT_OUTLINE_SCALE));
 }
 
 /** displayMass
@@ -320,7 +334,7 @@ function displayName(ctx, x, y, r, name, zoom) {
  */
 function displayMass(ctx, x, y, r, mass) {
     const size = Math.max(CELL_MASS_MIN_FONT_SIZE, r * CELL_MASS_RADIUS_SCALE);
-    drawOutlinedText(ctx, String(Math.round(mass)), x, y, `${size}px sans-serif`, Math.max(1.0, size * CELL_TEXT_OUTLINE_SCALE));
+    drawOutlinedText(ctx, String(Math.round(mass)), x, y, `700 ${size}px ${TEXT_FONT_FAMILY}`, Math.max(1.0, size * CELL_TEXT_OUTLINE_SCALE));
 }
 
 /** === UTILS === **/
@@ -330,7 +344,7 @@ function displayMass(ctx, x, y, r, mass) {
  * Middleware for stateless draw calls
  *
  * @param {CanvasRenderingContext2D} ctx
- * @param {function} fn
+ * @param {(ctx: CanvasRenderingContext2D) => void} fn
  */
 function draw(ctx, fn) {
     ctx.save();
@@ -365,18 +379,42 @@ function darken(hex, amount) {
  * @param {number} lineWidth
  */
 function drawOutlinedText(ctx, text, x, y, font, lineWidth) {
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+    draw(ctx, ctx => {
         ctx.font = font;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.lineWidth = lineWidth;
         ctx.lineJoin = 'round';
         ctx.miterLimit = 2;
-        ctx.strokeStyle = 'black';
+        ctx.strokeStyle = 'rgba(20, 25, 32, 0.78)';
         ctx.strokeText(text, x, y);
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
         ctx.fillText(text, x, y);
     });
+}
+
+
+/**
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x
+ * @param {number} y
+ * @param {number} width
+ * @param {number} height
+ * @param {number} radius
+ */
+function roundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
 }
 
 /** drawWobblyCircle
@@ -392,7 +430,7 @@ function drawOutlinedText(ctx, text, x, y, font, lineWidth) {
  * @param {number} time
  */
 function drawWobblyCircle(ctx, x, y, r, color, outlineColor, time) {
-    draw(ctx, (/**@type {CanvasRenderingContext2D} */ctx) => {
+    draw(ctx, ctx => {
         ctx.beginPath();
         for (let i = 0; i <= WOBBLY_CIRCLE_POINT_COUNT; i++) {
             const angle = (i / WOBBLY_CIRCLE_POINT_COUNT) * Math.PI * 2.0;

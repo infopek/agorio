@@ -1,15 +1,19 @@
 * {
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
 }
 
 body {
-    font-family: sans-serif;
+    overflow: hidden;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #16202a;
+    background: #f5f7fb;
 }
 
 canvas {
     display: block;
-    background-color: #ffffff;
+    background-color: #f8fafc;
 }
 
 /* Menu */
@@ -20,7 +24,79 @@ canvas {
     transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    width: min(320px, calc(100vw - 32px));
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 18px 60px rgba(25, 35, 50, 0.18), 0 2px 12px rgba(25, 35, 50, 0.08);
+    backdrop-filter: blur(16px);
+}
+
+#menu h1 {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+    color: #172033;
+}
+
+#menu-message {
+    min-height: 20px;
+    font-size: 14px;
+    line-height: 20px;
+    text-align: center;
+    color: #5c6675;
+}
+
+#name-input,
+#play-btn {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 6px;
+    font: inherit;
+}
+
+#name-input {
+    border: 1px solid #cbd5e1;
+    padding: 0 12px;
+    color: #172033;
+    background: rgba(255, 255, 255, 0.92);
+    outline: none;
+}
+
+#name-input:focus {
+    border-color: #4f8cff;
+    box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.18);
+}
+
+#name-input:disabled {
+    color: #7b8492;
+    background: #eef2f7;
+}
+
+#play-btn {
+    border: 0;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+    background: #2563eb;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.24);
+}
+
+#play-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+#play-btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+#play-btn:disabled {
+    cursor: default;
+    opacity: 0.68;
+    box-shadow: none;
 }
 
 #menu.hidden {
@@ -30,20 +106,30 @@ canvas {
 /* Leaderboard */
 #leaderboard {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 10px 14px;
-    border-radius: 6px;
-    font: 14px sans-serif;
-    min-width: 150px;
+    top: 14px;
+    right: 14px;
+    min-width: 190px;
+    max-width: min(260px, calc(100vw - 28px));
+    padding: 10px 12px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.54);
+    border-radius: 8px;
+    color: #172033;
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 10px 32px rgba(25, 35, 50, 0.12);
+    backdrop-filter: blur(14px);
+    font-size: 13px;
+    line-height: 1.25;
 }
 
 #leaderboard h3 {
-    margin: 0 0 6px;
-    font-size: 24px;
-    text-align: center;
+    margin: 0 0 8px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid rgba(23, 32, 51, 0.1);
+    color: #3b4658;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: left;
+    text-transform: uppercase;
 }
 
 #leaderboard ol {
@@ -55,9 +141,10 @@ canvas {
 #leaderboard li {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 16px;
+    gap: 18px;
     align-items: baseline;
-    padding: 2px 0;
+    min-height: 22px;
+    padding: 3px 0;
 }
 
 .leaderboard-name {
@@ -72,8 +159,12 @@ canvas {
 }
 
 #leaderboard li.me {
-    font-weight: bold;
-    color: #ffcc00;
+    margin: 2px -6px;
+    padding: 4px 6px;
+    border-radius: 5px;
+    color: #0f3a88;
+    font-weight: 800;
+    background: rgba(79, 140, 255, 0.14);
 }
 
 #leaderboard:empty {

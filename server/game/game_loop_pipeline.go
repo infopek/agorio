@@ -68,7 +68,7 @@ func (w *World) moveCells() {
 			}
 
 			// Speed scales with distance, same with the slowdown distance from cursor
-			slowdownDist := cell.Radius() * (SpeedFactorRange / math.Sqrt(cell.Mass/StartMass))
+			slowdownDist := cell.Radius() * SpeedFactorRange
 			speedFactor := min(dist/slowdownDist, 1.0)
 
 			// Calculate new direction and velocity

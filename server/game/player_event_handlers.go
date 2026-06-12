@@ -63,7 +63,7 @@ func (w *World) handlePlayerMove(playerID uuid.UUID, newTarget Vec2) {
 	p.Target = newTarget
 }
 
-/** handlePlayerDisconnect
+/** World.handlePlayerDisconnect
  *
  * Removes the player from the world, and closes their output channel
  */
@@ -122,7 +122,7 @@ func (w *World) handlePlayerConnect(playerID uuid.UUID, name string, outputChan 
 	log.Printf("player %v added with starter cell %v\n", p.ID, c.ID)
 }
 
-/** handlePlayerSplit
+/** World.handlePlayerSplit
  *
  * Splits the player if possible, the cells with the greater mass are prioritized
  *  when approaching the max cell limit
@@ -152,13 +152,14 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 		// Split
 		cell.Mass /= 2.0
 		cell.MergeTimer += MergeCooldownSeconds
+		dir := p.Target.Sub(cell.Position).Normalize()
 		newCell := Cell{
 			ID:      uuid.New(),
 			OwnerID: playerID,
 
 			Position:  cell.Position.Add(cell.Direction.Scale(cell.Radius() / 3.0)),
-			Direction: cell.Direction,
-			Momentum:  cell.Direction.Scale(SplitMomentumFactor + math.Sqrt(cell.Radius())*SplitMomentumRadiusFactor),
+			Direction: dir,
+			Momentum:  dir.Scale(SplitMomentumFactor + math.Sqrt(cell.Radius())*SplitMomentumRadiusFactor),
 
 			MergeTimer: min(MaxMergeTimer, MergeTimerStartSeconds+(cell.Mass*MergeTimerMassFactor)),
 
@@ -171,7 +172,7 @@ func (w *World) handlePlayerSplit(playerID uuid.UUID) {
 	}
 }
 
-/** handlePlayerEject
+/** World.handlePlayerEject
  *
  *
  */
@@ -189,11 +190,12 @@ func (w *World) handlePlayerEject(playerID uuid.UUID) {
 
 		// Eject mass
 		cell.Mass -= EjectAmount * EjectPenalty
+		dir := p.Target.Sub(cell.Position).Normalize()
 		newEject := Eject{
 			ID: uuid.New(),
 
 			Position: cell.Position.Add(cell.Direction.Scale(cell.Radius())),
-			Momentum: cell.Direction.Scale(EjectMomentum),
+			Momentum: dir.Scale(EjectMomentum),
 
 			Mass:  EjectAmount,
 			Color: cell.Color,

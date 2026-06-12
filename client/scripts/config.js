@@ -12,8 +12,8 @@ export const Config = Object.freeze({
     virusFeedToShoot: 7,
 
     // Camera
-    minZoomOverride: 0.8,
-    maxZoomOverride: 1.2,
+    minZoomOverride: 0.7,
+    maxZoomOverride: 1.3,
     wheelZoomOutScale: 0.9,
     wheelZoomInScale: 1.1,
     cameraBaseViewSize: 200,

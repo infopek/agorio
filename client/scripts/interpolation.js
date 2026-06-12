@@ -43,8 +43,11 @@ export function getInterpolated() {
  * @param {number} t
  */
 function interpolateState(s1, s2, t) {
+    const previousCells = indexById(s1.cells);
+    const previousEjects = indexById(s1.ejects);
+    const previousViruses = indexById(s1.viruses);
     const cells = s2.cells.map(c => {
-        const p = s1.cells.find(pc => pc.id === c.id);
+        const p = previousCells.get(c.id);
         if (!p) {
             return c;   // new cell, no prev
         }
@@ -56,7 +59,7 @@ function interpolateState(s1, s2, t) {
         };
     });
     const ejects = s2.ejects.map(e => {
-        const p = s1.ejects.find(pe => pe.id === e.id);
+        const p = previousEjects.get(e.id);
         if (!p) {
             return e;   // new eject, no prev
         }
@@ -68,7 +71,7 @@ function interpolateState(s1, s2, t) {
         };
     });
     const viruses = s2.viruses.map(v => {
-        const p = s1.viruses.find(pv => pv.id === v.id);
+        const p = previousViruses.get(v.id);
         if (!p) {
             return v;   // new virus, no prev
         }
@@ -81,9 +84,23 @@ function interpolateState(s1, s2, t) {
     });
 
     return {
-        ...s1,
+        ...s2,
         cells: cells,
         ejects: ejects,
         viruses: viruses
     };
 }
+
+/**
+ * @template {{id: string}} T
+ * @param {T[]} items
+ */
+function indexById(items) {
+    const byId = new Map();
+    for (const item of items) {
+        byId.set(item.id, item);
+    }
+    return byId;
+}
+
+

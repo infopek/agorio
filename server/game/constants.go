@@ -40,8 +40,8 @@ const (
 	SpeedExponent float64 = 0.2  // 0.0 = big cells stay a bit faster, 1.0 = big cells slow down more
 	TurnSpeed     float64 = 0.45 // 0.0 = slow, 1.0 = fast
 
-	CellCenterThreshold float64 = 7.0 // radius / {val} is considered the center, used for movement
-	SpeedFactorRange    float64 = 3.5 // speed factor is 1.0 if cursor if farther than radius * {val} from center of cell
+	CellCenterThreshold float64 = 7.0  // radius / {this value} is considered the center, used for movement
+	SpeedFactorRange    float64 = 1.15 // speed factor is 1.0 if cursor is farther than radius * {val} from center of cell
 
 	StartMass   float64 = 100.0
 	RadiusScale float64 = 3.6 // mass to radius constant
